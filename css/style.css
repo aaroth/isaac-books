@@ -569,7 +569,7 @@ button:disabled { cursor: default; opacity: 0.35; }
 .text-right { display: flex; flex-direction: column; min-width: 0; }
 .size-hint { margin: 0 0 6px; font-size: 15px; color: var(--ink-soft); }
 .size-preview {
-  flex: 1; min-height: 150px; max-height: 260px; overflow: auto;
+  flex: 1; min-height: 110px; max-height: 240px; overflow: auto;
   border: 3px dashed #eee3d6; border-radius: 18px;
   padding: 10px 12px; text-align: center; line-height: 1.25;
   white-space: pre-wrap; word-break: break-word;
@@ -579,6 +579,9 @@ button:disabled { cursor: default; opacity: 0.35; }
 .size-preview .letter.picked { background: #ffe082; box-shadow: 0 0 0 2px #ffca28; }
 .size-empty { font-size: 16px; color: var(--ink-soft); font-family: var(--font); }
 .size-buttons { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.color-label { font-size: 15px; font-weight: 600; margin: 10px 0 6px; }
+.text-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.text-swatch { width: 28px; height: 28px; }
 .size-change { font-size: 17px; padding: 10px 16px; gap: 2px; }
 .size-change:disabled { opacity: 0.4; }
 .size-change .small-a { font-size: 14px; font-weight: 700; }

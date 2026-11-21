@@ -66,17 +66,19 @@ function fontMetrics(font) {
   return metrics;
 }
 
-// Lays out text where every letter can have its own size (scales[i] is the
-// size of text[i], 1 = normal). Wraps at spaces to fit maxWidthEm, centers
-// each line. Everything is measured in "em" (multiples of the font size),
-// so the item can be resized without laying it out again.
-// Returns { lines: [{ baseline, runs: [{ t, s, x }] }], w, h }.
-export function layoutRichText(text, scales, font, maxWidthEm) {
+// Lays out text where every letter can have its own size and color
+// (scales[i] is the size of text[i], 1 = normal; colors[i] its color, or
+// null for the words' main color). Wraps at spaces to fit maxWidthEm,
+// centers each line. Everything is measured in "em" (multiples of the font
+// size), so the item can be resized without laying it out again.
+// Returns { lines: [{ baseline, runs: [{ t, s, c, x }] }], w, h }.
+export function layoutRichText(text, scales, font, maxWidthEm, colors = null) {
   if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
   const ctx = measureCtx;
   const { asc, desc } = fontMetrics(font);
   const widthOf = (str, s) => { ctx.font = fontCss(font, 100 * s); return ctx.measureText(str).width / 100; };
   const scaleAt = i => (scales && scales[i]) || 1;
+  const colorAt = i => (colors && colors[i]) || null;
 
   // Width of a run of letters, measuring same-size stretches together.
   const charsWidth = chars => {
@@ -93,7 +95,7 @@ export function layoutRichText(text, scales, font, maxWidthEm) {
   const rawLines = []; // arrays of { c, s }
   let index = 0;
   for (const para of text.split('\n')) {
-    const chars = [...para].map((c, k) => ({ c, s: scaleAt(index + k) }));
+    const chars = [...para].map((c, k) => ({ c, s: scaleAt(index + k), col: colorAt(index + k) }));
     // Indexes count letters (code points), so emoji take one slot.
     const len = [...para].length;
     const newlineScale = scaleAt(index + len) || 1;
@@ -132,16 +134,18 @@ export function layoutRichText(text, scales, font, maxWidthEm) {
     pushLine();
   }
 
-  // Turn each line into runs of same-size letters with x positions.
+  // Turn each line into runs of same-size, same-color letters with x positions.
   let top = 0, maxW = 0;
   const lines = rawLines.map(chars => {
     const runs = [];
     let x = 0, i = 0;
     while (i < chars.length) {
       let j = i;
-      while (j < chars.length && chars[j].s === chars[i].s) j++;
+      while (j < chars.length && chars[j].s === chars[i].s && chars[j].col === chars[i].col) j++;
       const t = chars.slice(i, j).map(c => c.c).join('');
-      runs.push({ t, s: chars[i].s, x });
+      const run = { t, s: chars[i].s, x };
+      if (chars[i].col) run.c = chars[i].col;
+      runs.push(run);
       x += widthOf(t, chars[i].s);
       i = j;
     }
@@ -173,6 +177,7 @@ export function renderText(ctx, item, scale) {
     for (const line of item.layout.lines) {
       for (const run of line.runs) {
         ctx.font = fontCss(item.font, fs * run.s);
+        ctx.fillStyle = run.c || item.color;
         ctx.fillText(run.t, -w / 2 + run.x * fs, -h / 2 + line.baseline * fs);
       }
     }

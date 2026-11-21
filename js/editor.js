@@ -219,9 +219,19 @@ class Editor {
     if (custom) this.customBtn.style.setProperty('--c', c);
     this.currentColor.style.background = c;
     this.el.style.setProperty('--current', c);
-    // With words picked, a color changes the words.
+    // With words picked, a color changes all of the words (including any
+    // letters that had their own color).
     const sel = this.layer.selected;
-    if (sel && sel.type === 'text') { if (sel.color !== c) this.layer.updateSelected({ color: c }); return; }
+    if (sel && sel.type === 'text') {
+      if (sel.color !== c || sel.colors) {
+        const layout = sel.layout && {
+          ...sel.layout,
+          lines: sel.layout.lines.map(l => ({ ...l, runs: l.runs.map(({ c: _, ...r }) => r) })),
+        };
+        this.layer.updateSelected({ color: c, colors: null, ...(layout ? { layout } : {}) });
+      }
+      return;
+    }
     // Picking a color while erasing means he wants to draw again.
     if (this.tool === 'eraser') this.setTool(this.lastDrawTool || 'brush');
   }
@@ -384,12 +394,12 @@ class Editor {
     const cover = this.coverKind();
     const res = await textDialog({ color: this.color, cover, authorName: AUTHOR });
     if (!res) return;
-    const fields = await this.textFields(res.text, res.scales, res.font, res.fontSize, this.W * 0.85);
+    const fields = await this.textFields(res, res.fontSize, this.W * 0.85);
     // A title goes near the top of the front cover.
     const [x, y] = cover === 'front' && !this.layer.items.some(i => i.type === 'text')
       ? [this.W / 2, Math.max(fields.h / 2 + this.H * 0.06, this.H * 0.2)]
       : this.nextSpot();
-    this.layer.add({ id: uid(), type: 'text', x, y, rot: 0, color: this.color, ...fields });
+    this.layer.add({ id: uid(), type: 'text', x, y, rot: 0, ...fields });
     popSound();
   }
 
@@ -401,16 +411,17 @@ class Editor {
     // Without a new size picked, keep the size it was turned and stretched to.
     const fontSize = res.fontSize || current.fontSize;
     const maxWidth = res.fontSize ? this.W * 0.85 : Math.max(this.W * 0.85, current.w);
-    const fields = await this.textFields(res.text, res.scales, res.font, fontSize, maxWidth);
+    const fields = await this.textFields(res, fontSize, maxWidth);
     const { lines, ...rest } = current; // drop the old-style layout
     this.layer.replace({ ...rest, ...fields });
   }
 
-  // Lays out words (each letter may have its own size) for a text item.
-  async textFields(text, scales, font, fontSize, maxWidth) {
+  // Lays out words (each letter may have its own size and color) for a
+  // text item, from what the words dialog returned.
+  async textFields({ text, scales, colors, color, font }, fontSize, maxWidth) {
     await ensureFont(font, text);
-    const layout = layoutRichText(text, scales, font, maxWidth / fontSize);
-    return { text, scales, font, fontSize, layout, w: layout.w * fontSize, h: layout.h * fontSize };
+    const layout = layoutRichText(text, scales, font, maxWidth / fontSize, colors);
+    return { text, scales, colors, color, font, fontSize, layout, w: layout.w * fontSize, h: layout.h * fontSize };
   }
 
   async addSticker() {

@@ -22,36 +22,44 @@ function isLight(hex) {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.8;
 }
 
-// When the words are edited, keep each remaining letter's size; new
-// letters get the size of the letter just before them.
-function keepScales(oldText, newText, oldScales) {
+// When the words are edited, keep each remaining letter's size or color;
+// new letters get the one of the letter just before them.
+function keepPerLetter(oldText, newText, old, empty) {
   const a = [...oldText], b = [...newText];
   let p = 0;
   while (p < a.length && p < b.length && a[p] === b[p]) p++;
   let q = 0;
   while (q < a.length - p && q < b.length - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
-  const fill = p > 0 ? oldScales[p - 1] : (oldScales[p] ?? 1);
-  return [...oldScales.slice(0, p), ...Array(b.length - p - q).fill(fill ?? 1), ...oldScales.slice(a.length - q)];
+  const fill = p > 0 ? old[p - 1] : (old[p] ?? empty);
+  return [...old.slice(0, p), ...Array(b.length - p - q).fill(fill ?? empty), ...old.slice(a.length - q)];
 }
 
 const SCALE_STEP = 1.25;
 const clampScale = s => Math.round(Math.max(0.4, Math.min(4, s)) * 100) / 100;
 
-// Returns { text, scales, font, fontSize } or null. fontSize is null when
-// the size wasn't changed, so an item that was resized by hand keeps its
-// size. scales[i] is how big letter i is (1 = normal).
+export const TEXT_COLORS = [
+  '#212121', '#ffffff', '#e53935', '#fb8c00', '#fdd835', '#43a047',
+  '#00acc1', '#1e88e5', '#8e24aa', '#ff6f91', '#6d4c41', '#9e9e9e',
+];
+
+// Returns { text, scales, colors, color, font, fontSize } or null.
+// fontSize is null when the size wasn't changed, so an item that was
+// resized by hand keeps its size. scales[i] is how big letter i is
+// (1 = normal); colors[i] is its color, or null for the main color.
 export async function textDialog({ item = null, color, cover = null, authorName = 'Isaac' }) {
   await Promise.all(FONTS.map(f => ensureFont(f.id)));
   const startText = item ? item.text : '';
+  const len = [...startText].length;
   const state = {
     text: startText,
-    scales: item && item.scales ? [...item.scales] : Array([...startText].length).fill(1),
+    scales: item && item.scales ? [...item.scales] : Array(len).fill(1),
+    colors: item && item.colors ? [...item.colors] : Array(len).fill(null),
+    color: item ? item.color : color,
     font: item ? item.font : 'Fredoka',
     sizeIndex: item ? nearestSize(item.fontSize) : (cover ? 2 : 1),
     sel: null, // [start, end) of picked letters
   };
   const startSize = state.sizeIndex;
-  const textColor = item ? item.color : color;
 
   return openDialog(close => {
     const input = h('textarea.text-input', {
@@ -59,7 +67,8 @@ export async function textDialog({ item = null, color, cover = null, authorName 
       rows: 2,
       placeholder: cover === 'front' ? "Your book's title" : 'Type your words here',
       oninput: () => {
-        state.scales = keepScales(state.text, input.value, state.scales);
+        state.scales = keepPerLetter(state.text, input.value, state.scales, 1);
+        state.colors = keepPerLetter(state.text, input.value, state.colors, null);
         state.text = input.value;
         state.sel = null;
         done.disabled = !input.value.trim();
@@ -77,20 +86,45 @@ export async function textDialog({ item = null, color, cover = null, authorName 
       h('span.big-a', {}, 'A'), h('span.small-a', {}, 'A'), ' Smaller');
     const same = h('button.btn.btn-soft.size-change', { onclick: () => resetSizes() }, '↺ Same size');
 
+    // ---- colors: for the picked letters, or all the words ----
+    const colorLabel = h('div.color-label');
+    const swatches = TEXT_COLORS.map(c => h('button.swatch-btn.text-swatch', {
+      style: { '--c': c }, 'aria-label': 'Color ' + c, onclick: () => pickColor(c),
+    }));
+
+    function pickColor(c) {
+      if (state.sel) {
+        const [a, b] = state.sel;
+        for (let i = a; i < b; i++) state.colors[i] = c === state.color ? null : c;
+      } else {
+        state.color = c;
+        state.colors.fill(null);
+        input.style.color = c;
+        input.style.background = isLight(c) ? '#5b6b7a' : '#ffffff';
+      }
+      paintPreview();
+    }
+
     function paintPreview() {
       const chars = [...state.text];
       preview.style.font = fontCss(state.font, 30);
-      preview.style.color = textColor;
-      preview.style.background = isLight(textColor) ? '#5b6b7a' : '#fffaf2';
+      preview.style.color = state.color;
+      preview.style.background = isLight(state.color) ? '#5b6b7a' : '#fffaf2';
       const [a, b] = state.sel || [-1, -1];
       preview.replaceChildren(...chars.map((c, i) => c === '\n' ? h('br')
         : h('span.letter' + (i >= a && i < b ? '.picked' : ''), {
-          'data-i': i, style: { fontSize: Math.round(30 * (state.scales[i] || 1)) + 'px' },
+          'data-i': i,
+          style: { fontSize: Math.round(30 * (state.scales[i] || 1)) + 'px', color: state.colors[i] || '' },
         }, c)));
       if (!chars.length) preview.append(h('span.size-empty', {}, 'Your words will show up here'));
       const has = !!state.sel;
       bigger.disabled = smaller.disabled = !has;
-      hint.textContent = has ? 'Now make them bigger or smaller!' : 'Tap a word, or slide across letters, to pick them';
+      hint.textContent = has
+        ? 'Now make them bigger or smaller, or pick a color!'
+        : 'Tap a word, or slide across letters, to pick them';
+      colorLabel.textContent = has ? 'Color for the picked letters' : 'Color for all the words';
+      const shown = has ? (state.colors[a] || state.color) : state.color;
+      swatches.forEach((s, i) => s.classList.toggle('active', TEXT_COLORS[i] === shown));
     }
 
     function changeSize(f) {
@@ -147,8 +181,8 @@ export async function textDialog({ item = null, color, cover = null, authorName 
     };
     preview.addEventListener('pointerup', endPick);
     preview.addEventListener('pointercancel', endPick);
-    input.style.color = textColor;
-    input.style.background = isLight(textColor) ? '#5b6b7a' : '#ffffff';
+    input.style.color = state.color;
+    input.style.background = isLight(state.color) ? '#5b6b7a' : '#ffffff';
     const applyFont = () => {
       input.style.font = fontCss(state.font, [28, 36, 46][state.sizeIndex]);
       paintPreview();
@@ -179,9 +213,13 @@ export async function textDialog({ item = null, color, cover = null, authorName 
     const finish = () => {
       if (!state.text.trim()) return;
       const text = state.text.replace(/\s+$/, '');
+      const n = [...text].length;
+      const colors = state.colors.slice(0, n);
       close({
         text,
-        scales: state.scales.slice(0, [...text].length),
+        scales: state.scales.slice(0, n),
+        colors: colors.some(Boolean) ? colors : null,
+        color: state.color,
         font: state.font,
         fontSize: state.sizeIndex === startSize && item ? null : TEXT_SIZES[state.sizeIndex].px,
       });
@@ -205,10 +243,12 @@ export async function textDialog({ item = null, color, cover = null, authorName 
             (s, i) => [h('span.size-sample', { style: { fontSize: [18, 26, 36][i] + 'px' } }, 'A'), h('span.choice-label', {}, s.label)]),
         ),
         h('div.text-right', {},
-          h('h3', {}, 'Make words bigger or smaller'),
+          h('h3', {}, 'Change some of the words'),
           hint,
           preview,
           h('div.size-buttons', {}, smaller, bigger, same),
+          colorLabel,
+          h('div.text-swatches', {}, swatches),
         ),
       ),
       h('div.dialog-buttons', {},

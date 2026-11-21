@@ -3,7 +3,7 @@
 // Change VERSION whenever any app file changes: browsers then fetch the
 // new files and the next time the app opens it uses them.
 
-const VERSION = '2026-11-21.9';
+const VERSION = '2026-11-21.10';
 const APP_CACHE = `app-${VERSION}`;
 const STICKER_CACHE = 'stickers-v1';
 
