@@ -19,7 +19,9 @@ export const SHAPES = {
 };
 
 export const PAGE_COUNT_CHOICES = [4, 8, 12, 16, 20, 24, 32, 40];
-export const MAX_INSIDE_PAGES = 40;
+// New books start with up to 40 pages; pages can be added up to 60.
+// Past about 16 sheets a printed booklet is too thick to fold well.
+export const MAX_INSIDE_PAGES = 60;
 export const MIN_INSIDE_PAGES = 1;
 
 export const COVER_COLORS = [

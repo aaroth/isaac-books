@@ -118,15 +118,19 @@ class Reader {
     const aw = r.width - 170;  // room for the arrow buttons
     const ah = r.height - 50;
     const cos = Math.cos(TILT * Math.PI / 180);
-    const ph = Math.max(100, Math.min(ah / (cos + 0.3), (aw / 2) / ratio));
+    // A thick book stands taller on the table, so leave room for it.
+    const insideCount = this.pages.length - 2;
+    const thickPerPh = thicknessPx(insideCount, (Math.min(1, ratio) / 180) * 1.6);
+    const ph = Math.max(100, Math.min(ah / (cos + 0.3 + 0.6 * thickPerPh), (aw / 2) / ratio));
     const pw = ph * ratio;
     this.pw = pw; this.ph = ph;
     this.bookEl.style.setProperty('--pw', pw + 'px');
     this.bookEl.style.setProperty('--ph', ph + 'px');
 
-    // Same thickness rule as the bookshelf, scaled to the page size.
+    // Same thickness rule as the bookshelf, scaled to the page's shorter
+    // side so tall books don't turn into towers.
     const inside = this.pages.length - 2;
-    const total = thicknessPx(inside, (ph / 180) * 1.6);
+    const total = thicknessPx(inside, (Math.min(pw, ph) / 180) * 1.6);
     const tb = Math.max(2, total * 0.12);
     const t = Math.max(0.4, (total - 2 * tb) / Math.max(1, this.N - 2));
     const th = i => (i === 0 || i === this.N - 1 ? tb : t);
@@ -137,9 +141,17 @@ class Reader {
     for (let i = 0; i < this.N; i++) { sum += th(i); this.zLeft[i] = sum; }
     this.boardThickness = tb;
 
-    // Snap into place without animating.
+    // Snap into place without animating, then measure where the tilted
+    // book actually lands and move it to the middle of the table.
     this.bookEl.classList.add('no-anim');
+    this.dy = 0;
     this.update();
+    const parts = [...this.leafEls, this.edgeLeft, this.edgeRight].map(el => el.getBoundingClientRect()).filter(b => b.height);
+    if (parts.length) {
+      const top = Math.min(...parts.map(b => b.top)), bottom = Math.max(...parts.map(b => b.bottom));
+      this.dy = Math.round((r.top + r.height / 2) - (top + bottom) / 2);
+      this.update();
+    }
     void this.bookEl.offsetWidth;
     this.bookEl.classList.remove('no-anim');
     this.renderSize = this.renderSize || Math.round(Math.max(pw, ph) * (window.devicePixelRatio || 1));
@@ -167,7 +179,7 @@ class Reader {
 
     // Closed books sit in the middle of the table.
     const shift = p === 0 ? -pw / 2 : p === N ? pw / 2 : 0;
-    this.bookEl.style.transform = `translateX(${shift}px) rotateX(${TILT}deg)`;
+    this.bookEl.style.transform = `translate(${shift}px, ${this.dy || 0}px) rotateX(${TILT}deg)`;
     this.shadow.style.left = (p === 0 ? pw : 0) + 'px';
     this.shadow.style.width = (p === 0 || p === N ? pw : 2 * pw) + 'px';
 
