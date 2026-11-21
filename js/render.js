@@ -4,6 +4,28 @@
 // the sizes and line breaks stored on each item so they match.
 
 import { loadStickerImage, isEmojiSticker } from './stickers.js';
+import { SHAPES } from './model.js';
+
+// A finished picture of a whole page, at most maxDim pixels on its longer side.
+export async function renderPageCanvas(page, shape, maxDim) {
+  const { w, h } = SHAPES[shape];
+  const s = maxDim / Math.max(w, h);
+  const c = document.createElement('canvas');
+  c.width = Math.round(w * s);
+  c.height = Math.round(h * s);
+  const ctx = c.getContext('2d');
+  drawPaper(ctx, c.width, c.height, page.bg, page.bgPattern || 'none');
+  if (page.drawing) {
+    try {
+      const bmp = await createImageBitmap(page.drawing);
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(bmp, 0, 0, c.width, c.height);
+      bmp.close?.();
+    } catch (err) { console.error(err); }
+  }
+  await renderItems(ctx, page.items || [], s);
+  return c;
+}
 
 // ---------- fonts ----------
 
@@ -26,6 +48,142 @@ export async function ensureFont(font, text = 'Abc') {
 }
 
 let measureCtx = null;
+const metricsCache = new Map();
+
+// Ascent and descent of a font, as fractions of its size.
+function fontMetrics(font) {
+  if (metricsCache.has(font)) return metricsCache.get(font);
+  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+  measureCtx.font = fontCss(font, 100);
+  const m = measureCtx.measureText('Hgjy');
+  const metrics = {
+    asc: (m.fontBoundingBoxAscent || 80) / 100,
+    desc: (m.fontBoundingBoxDescent || 22) / 100,
+  };
+  // Only remember it once the real font has loaded.
+  if (document.fonts.check(fontCss(font, 40))) metricsCache.set(font, metrics);
+  return metrics;
+}
+
+// Lays out text where every letter can have its own size (scales[i] is the
+// size of text[i], 1 = normal). Wraps at spaces to fit maxWidthEm, centers
+// each line. Everything is measured in "em" (multiples of the font size),
+// so the item can be resized without laying it out again.
+// Returns { lines: [{ baseline, runs: [{ t, s, x }] }], w, h }.
+export function layoutRichText(text, scales, font, maxWidthEm) {
+  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+  const ctx = measureCtx;
+  const { asc, desc } = fontMetrics(font);
+  const widthOf = (str, s) => { ctx.font = fontCss(font, 100 * s); return ctx.measureText(str).width / 100; };
+  const scaleAt = i => (scales && scales[i]) || 1;
+
+  // Width of a run of letters, measuring same-size stretches together.
+  const charsWidth = chars => {
+    let w = 0, i = 0;
+    while (i < chars.length) {
+      let j = i;
+      while (j < chars.length && chars[j].s === chars[i].s) j++;
+      w += widthOf(chars.slice(i, j).map(c => c.c).join(''), chars[i].s);
+      i = j;
+    }
+    return w;
+  };
+
+  const rawLines = []; // arrays of { c, s }
+  let index = 0;
+  for (const para of text.split('\n')) {
+    const chars = [...para].map((c, k) => ({ c, s: scaleAt(index + k) }));
+    // Indexes count letters (code points), so emoji take one slot.
+    const len = [...para].length;
+    const newlineScale = scaleAt(index + len) || 1;
+    index += len + 1;
+    // Split into words and spaces.
+    const tokens = [];
+    for (const ch of chars) {
+      const space = ch.c === ' ';
+      const last = tokens[tokens.length - 1];
+      if (last && last.space === space) last.chars.push(ch);
+      else tokens.push({ space, chars: [ch] });
+    }
+    let line = [], lineW = 0, pending = [];
+    const pushLine = () => { rawLines.push(line.length ? line : [{ c: '', s: newlineScale }]); line = []; lineW = 0; pending = []; };
+    for (const tok of tokens) {
+      if (tok.space) { pending = tok.chars; continue; }
+      let word = tok.chars;
+      let wordW = charsWidth(word);
+      const spaceW = line.length ? charsWidth(pending) : 0;
+      if (line.length && lineW + spaceW + wordW > maxWidthEm) pushLine();
+      else if (line.length) { line.push(...pending); lineW += spaceW; }
+      // A word too long for a whole line is split up.
+      while (wordW > maxWidthEm && word.length > 1) {
+        let cut = word.length - 1;
+        while (cut > 1 && charsWidth(word.slice(0, cut)) > maxWidthEm) cut--;
+        if (line.length) pushLine();
+        line = word.slice(0, cut);
+        pushLine();
+        word = word.slice(cut);
+        wordW = charsWidth(word);
+      }
+      line.push(...word);
+      lineW += wordW;
+      pending = [];
+    }
+    pushLine();
+  }
+
+  // Turn each line into runs of same-size letters with x positions.
+  let top = 0, maxW = 0;
+  const lines = rawLines.map(chars => {
+    const runs = [];
+    let x = 0, i = 0;
+    while (i < chars.length) {
+      let j = i;
+      while (j < chars.length && chars[j].s === chars[i].s) j++;
+      const t = chars.slice(i, j).map(c => c.c).join('');
+      runs.push({ t, s: chars[i].s, x });
+      x += widthOf(t, chars[i].s);
+      i = j;
+    }
+    const big = Math.max(...chars.map(c => c.s));
+    const lh = big * LINE_HEIGHT;
+    const baseline = top + (lh - big * (asc + desc)) / 2 + big * asc;
+    top += lh;
+    maxW = Math.max(maxW, x);
+    return { baseline, runs, width: x };
+  });
+  const w = Math.max(maxW, 0.5) + 0.4;
+  for (const line of lines) {
+    const off = (w - line.width) / 2;
+    for (const r of line.runs) r.x += off;
+    delete line.width;
+  }
+  return { lines, w, h: top };
+}
+
+// Draws a text item centered on (0, 0). scale converts page pixels to ctx
+// pixels.
+export function renderText(ctx, item, scale) {
+  const fs = item.fontSize * scale;
+  const [w, h] = itemSize(item).map(v => v * scale);
+  ctx.fillStyle = item.color;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  if (item.layout) {
+    for (const line of item.layout.lines) {
+      for (const run of line.runs) {
+        ctx.font = fontCss(item.font, fs * run.s);
+        ctx.fillText(run.t, -w / 2 + run.x * fs, -h / 2 + line.baseline * fs);
+      }
+    }
+  } else {
+    // Words made before letters could have their own sizes.
+    ctx.font = fontCss(item.font, fs);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const lh = fs * LINE_HEIGHT;
+    item.lines.forEach((line, n) => ctx.fillText(line, 0, -h / 2 + lh * (n + 0.5)));
+  }
+}
 
 // Breaks text into lines no wider than maxWidth. Returns the lines and the
 // box size they need.
@@ -112,13 +270,7 @@ export async function renderItems(ctx, items, scale) {
       ctx.shadowColor = 'transparent';
       if (pic) ctx.drawImage(pic, -w / 2 + b, -h / 2 + b, w - 2 * b, h - 2 * b);
     } else if (item.type === 'text') {
-      const size = item.fontSize * scale;
-      ctx.font = fontCss(item.font, size);
-      ctx.fillStyle = item.color;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      const lh = size * LINE_HEIGHT;
-      item.lines.forEach((line, n) => ctx.fillText(line, 0, -h / 2 + lh * (n + 0.5)));
+      renderText(ctx, item, scale);
     }
     ctx.restore();
   });

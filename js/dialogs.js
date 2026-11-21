@@ -2,7 +2,7 @@
 // snapshots, and choosing the paper.
 
 import { h, openDialog } from './ui.js';
-import { STICKER_GROUPS, getStickerSrc, isEmojiSticker } from './stickers.js';
+import { STICKER_GROUPS, STICKER_NAMES, getStickerSrc, isEmojiSticker } from './stickers.js';
 import { FONTS, fontCss, ensureFont, PAPER_PATTERNS, PAPER_COLORS, drawPaper } from './render.js';
 import { SHAPES } from './model.js';
 
@@ -21,14 +21,33 @@ function isLight(hex) {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.8;
 }
 
-// Returns { text, font, fontSize } or null. fontSize is null when the size
-// wasn't changed, so an item that was resized by hand keeps its size.
+// When the words are edited, keep each remaining letter's size; new
+// letters get the size of the letter just before them.
+function keepScales(oldText, newText, oldScales) {
+  const a = [...oldText], b = [...newText];
+  let p = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  let q = 0;
+  while (q < a.length - p && q < b.length - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
+  const fill = p > 0 ? oldScales[p - 1] : (oldScales[p] ?? 1);
+  return [...oldScales.slice(0, p), ...Array(b.length - p - q).fill(fill ?? 1), ...oldScales.slice(a.length - q)];
+}
+
+const SCALE_STEP = 1.25;
+const clampScale = s => Math.round(Math.max(0.4, Math.min(4, s)) * 100) / 100;
+
+// Returns { text, scales, font, fontSize } or null. fontSize is null when
+// the size wasn't changed, so an item that was resized by hand keeps its
+// size. scales[i] is how big letter i is (1 = normal).
 export async function textDialog({ item = null, color, cover = null, authorName = 'Isaac' }) {
   await Promise.all(FONTS.map(f => ensureFont(f.id)));
+  const startText = item ? item.text : '';
   const state = {
-    text: item ? item.text : '',
+    text: startText,
+    scales: item && item.scales ? [...item.scales] : Array([...startText].length).fill(1),
     font: item ? item.font : 'Fredoka',
     sizeIndex: item ? nearestSize(item.fontSize) : (cover ? 2 : 1),
+    sel: null, // [start, end) of picked letters
   };
   const startSize = state.sizeIndex;
   const textColor = item ? item.color : color;
@@ -38,12 +57,101 @@ export async function textDialog({ item = null, color, cover = null, authorName 
       value: state.text,
       rows: 2,
       placeholder: cover === 'front' ? "Your book's title" : 'Type your words here',
-      oninput: () => { state.text = input.value; done.disabled = !input.value.trim(); },
+      oninput: () => {
+        state.scales = keepScales(state.text, input.value, state.scales);
+        state.text = input.value;
+        state.sel = null;
+        done.disabled = !input.value.trim();
+        paintPreview();
+      },
       onkeydown: e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) finish(); },
     });
+
+    // ---- making single words or letters bigger or smaller ----
+    const preview = h('div.size-preview');
+    const hint = h('p.size-hint');
+    const bigger = h('button.btn.btn-soft.size-change', { onclick: () => changeSize(SCALE_STEP) },
+      h('span.small-a', {}, 'A'), h('span.big-a', {}, 'A'), ' Bigger');
+    const smaller = h('button.btn.btn-soft.size-change', { onclick: () => changeSize(1 / SCALE_STEP) },
+      h('span.big-a', {}, 'A'), h('span.small-a', {}, 'A'), ' Smaller');
+    const same = h('button.btn.btn-soft.size-change', { onclick: () => resetSizes() }, '↺ Same size');
+
+    function paintPreview() {
+      const chars = [...state.text];
+      preview.style.font = fontCss(state.font, 30);
+      preview.style.color = textColor;
+      preview.style.background = isLight(textColor) ? '#5b6b7a' : '#fffaf2';
+      const [a, b] = state.sel || [-1, -1];
+      preview.replaceChildren(...chars.map((c, i) => c === '\n' ? h('br')
+        : h('span.letter' + (i >= a && i < b ? '.picked' : ''), {
+          'data-i': i, style: { fontSize: Math.round(30 * (state.scales[i] || 1)) + 'px' },
+        }, c)));
+      if (!chars.length) preview.append(h('span.size-empty', {}, 'Your words will show up here'));
+      const has = !!state.sel;
+      bigger.disabled = smaller.disabled = !has;
+      hint.textContent = has ? 'Now make them bigger or smaller!' : 'Tap a word, or slide across letters, to pick them';
+    }
+
+    function changeSize(f) {
+      if (!state.sel) return;
+      const [a, b] = state.sel;
+      for (let i = a; i < b; i++) state.scales[i] = clampScale((state.scales[i] || 1) * f);
+      paintPreview();
+    }
+
+    function resetSizes() {
+      const [a, b] = state.sel || [0, state.scales.length];
+      for (let i = a; i < b; i++) state.scales[i] = 1;
+      paintPreview();
+    }
+
+    // Tap picks a whole word; sliding picks the letters slid across.
+    let anchor = null, slid = false;
+    const letterAt = e => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const sp = el && el.closest && el.closest('.letter');
+      return sp && preview.contains(sp) ? Number(sp.dataset.i) : null;
+    };
+    preview.addEventListener('pointerdown', e => {
+      const i = letterAt(e);
+      if (i === null) { state.sel = null; paintPreview(); return; }
+      e.preventDefault();
+      anchor = i; slid = false;
+      state.sel = [i, i + 1];
+      try { preview.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      paintPreview();
+    });
+    preview.addEventListener('pointermove', e => {
+      if (anchor === null) return;
+      const j = letterAt(e);
+      if (j === null) return;
+      if (j !== anchor) slid = true;
+      state.sel = [Math.min(anchor, j), Math.max(anchor, j) + 1];
+      paintPreview();
+    });
+    const endPick = () => {
+      if (anchor === null) return;
+      if (!slid) {
+        const chars = [...state.text];
+        const isGap = c => c === ' ' || c === '\n';
+        let a = anchor, b = anchor + 1;
+        if (!isGap(chars[anchor])) {
+          while (a > 0 && !isGap(chars[a - 1])) a--;
+          while (b < chars.length && !isGap(chars[b])) b++;
+        }
+        state.sel = [a, b];
+      }
+      anchor = null;
+      paintPreview();
+    };
+    preview.addEventListener('pointerup', endPick);
+    preview.addEventListener('pointercancel', endPick);
     input.style.color = textColor;
     input.style.background = isLight(textColor) ? '#5b6b7a' : '#ffffff';
-    const applyFont = () => { input.style.font = fontCss(state.font, [28, 36, 46][state.sizeIndex]); };
+    const applyFont = () => {
+      input.style.font = fontCss(state.font, [28, 36, 46][state.sizeIndex]);
+      paintPreview();
+    };
     applyFont();
 
     const choiceRow = (options, isSel, onPick, render) => {
@@ -69,8 +177,10 @@ export async function textDialog({ item = null, color, cover = null, authorName 
 
     const finish = () => {
       if (!state.text.trim()) return;
+      const text = state.text.replace(/\s+$/, '');
       close({
-        text: state.text.replace(/\s+$/, ''),
+        text,
+        scales: state.scales.slice(0, [...text].length),
         font: state.font,
         fontSize: state.sizeIndex === startSize && item ? null : TEXT_SIZES[state.sizeIndex].px,
       });
@@ -82,19 +192,29 @@ export async function textDialog({ item = null, color, cover = null, authorName 
     return h('div.text-dialog', {},
       h('button.dialog-close', { onclick: () => close(null), 'aria-label': 'Close' }, '✖'),
       h('h2', {}, item ? 'Change the words' : (cover === 'front' ? 'Title' : 'Words')),
-      input,
-      chips.length ? h('div.chip-row', {}, chips.map(c => h('button.chip', { onclick: () => insert(c) }, '+ ' + c))) : null,
-      h('h3', {}, 'Letters'),
-      choiceRow(FONTS, f => f.id === state.font, f => { state.font = f.id; },
-        f => [h('span.font-sample', { style: { font: fontCss(f.id, 30) } }, 'Abc'), h('span.choice-label', {}, f.label)]),
-      h('h3', {}, 'Size'),
-      choiceRow(TEXT_SIZES, (s, i) => i === state.sizeIndex, (s, i) => { state.sizeIndex = i; },
-        (s, i) => [h('span.size-sample', { style: { fontSize: [18, 26, 36][i] + 'px' } }, 'A'), h('span.choice-label', {}, s.label)]),
+      h('div.text-dialog-body', {},
+        h('div.text-left', {},
+          input,
+          chips.length ? h('div.chip-row', {}, chips.map(c => h('button.chip', { onclick: () => insert(c) }, '+ ' + c))) : null,
+          h('h3', {}, 'Letters'),
+          choiceRow(FONTS, f => f.id === state.font, f => { state.font = f.id; },
+            f => [h('span.font-sample', { style: { font: fontCss(f.id, 30) } }, 'Abc'), h('span.choice-label', {}, f.label)]),
+          h('h3', {}, 'Size of all the words'),
+          choiceRow(TEXT_SIZES, (s, i) => i === state.sizeIndex, (s, i) => { state.sizeIndex = i; },
+            (s, i) => [h('span.size-sample', { style: { fontSize: [18, 26, 36][i] + 'px' } }, 'A'), h('span.choice-label', {}, s.label)]),
+        ),
+        h('div.text-right', {},
+          h('h3', {}, 'Make words bigger or smaller'),
+          hint,
+          preview,
+          h('div.size-buttons', {}, smaller, bigger, same),
+        ),
+      ),
       h('div.dialog-buttons', {},
         h('button.btn.btn-big.btn-soft', { onclick: () => close(null) }, 'Cancel'),
         done),
     );
-  }, { className: 'dialog-medium' });
+  }, { className: 'dialog-wide' });
 }
 
 // ---------- stickers ----------
@@ -114,10 +234,13 @@ export function stickerDialog() {
       const group = STICKER_GROUPS.find(g => g.id === id);
       tabs.forEach((t, i) => t.classList.toggle('selected', STICKER_GROUPS[i].id === id));
       grid.replaceChildren(...group.items.map(sticker => {
-        const b = h('button.sticker-btn', { onclick: () => close(sticker), title: 'Add this sticker' });
-        if (isEmojiSticker(sticker)) b.append(h('span.emoji-fallback', {}, sticker));
+        const name = STICKER_NAMES[sticker];
+        const pic = h('div.sticker-pic');
+        const b = h('button.sticker-btn' + (name ? '.named' : ''), { onclick: () => close(sticker), title: name || 'Add this sticker' },
+          pic, name ? h('span.sticker-name', {}, name) : null);
+        if (isEmojiSticker(sticker)) pic.append(h('span.emoji-fallback', {}, sticker));
         getStickerSrc(sticker).then(src => {
-          if (src) b.replaceChildren(h('img', { src, alt: '', draggable: false }));
+          if (src) pic.replaceChildren(h('img', { src, alt: '', draggable: false }));
         });
         return b;
       }));

@@ -38,10 +38,12 @@ export async function openShelf(root) {
     const choice = await openDialog(close => h('div.book-menu', {},
       h('div.book-menu-cover', {}, coverEl.cloneNode(true)),
       h('div.book-menu-buttons', {},
-        h('button.btn.btn-big.btn-go', { onclick: () => close('edit') }, h('span', {}, '✏️'), 'Make pages'),
+        h('button.btn.btn-big.btn-go', { onclick: () => close('read') }, h('span', {}, '📖'), 'Read it'),
+        h('button.btn.btn-big.btn-blue', { onclick: () => close('edit') }, h('span', {}, '✏️'), 'Make pages'),
         h('button.btn.btn-soft.btn-small-danger', { onclick: () => close('delete') }, h('span', {}, '🗑️'), 'Throw away'),
       ),
     ));
+    if (choice === 'read') location.hash = `#/book/${book.id}/read/0`;
     if (choice === 'edit') location.hash = `#/book/${book.id}/edit/0`;
     if (choice === 'delete') {
       const ok = await confirmDialog({

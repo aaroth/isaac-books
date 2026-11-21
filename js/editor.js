@@ -10,12 +10,13 @@ import {
   TOOLS, SIZES, MARKER_ALPHA, makeStroke, addPoint, drawSegment, drawStrokeEnd,
   floodFill, History, commitLayer, grainCanvas,
 } from './draw.js';
-import { drawPaper, renderItems, layoutText, shrinkPicture, ensureFont } from './render.js';
+import { drawPaper, renderItems, layoutRichText, shrinkPicture, ensureFont } from './render.js';
 import { ItemsLayer } from './items.js';
 import {
   textDialog, stickerDialog, pickPictureFile, cameraDialog, hasCamera, paperDialog, messageDialog,
 } from './dialogs.js';
 import { h, confirmDialog } from './ui.js';
+import { readerPositionForPage } from './reader.js';
 
 const PALETTE = [
   '#212121', '#9e9e9e', '#ffffff',
@@ -135,6 +136,7 @@ class Editor {
       h('div.spacer'),
       this.saveStatus,
       this.undoBtn, this.redoBtn,
+      addBtn('add-read', '📖', 'Read', () => this.read()),
     );
 
     // Tools
@@ -381,17 +383,12 @@ class Editor {
     const cover = this.coverKind();
     const res = await textDialog({ color: this.color, cover, authorName: AUTHOR });
     if (!res) return;
-    await ensureFont(res.font, res.text);
-    const lay = layoutText(res.text, res.font, res.fontSize, this.W * 0.85);
+    const fields = await this.textFields(res.text, res.scales, res.font, res.fontSize, this.W * 0.85);
     // A title goes near the top of the front cover.
     const [x, y] = cover === 'front' && !this.layer.items.some(i => i.type === 'text')
-      ? [this.W / 2, Math.max(lay.h / 2 + this.H * 0.06, this.H * 0.2)]
+      ? [this.W / 2, Math.max(fields.h / 2 + this.H * 0.06, this.H * 0.2)]
       : this.nextSpot();
-    this.layer.add({
-      id: uid(), type: 'text', x, y, rot: 0,
-      text: res.text, font: res.font, fontSize: res.fontSize, color: this.color,
-      lines: lay.lines, w: lay.w, h: lay.h,
-    });
+    this.layer.add({ id: uid(), type: 'text', x, y, rot: 0, color: this.color, ...fields });
   }
 
   async editText(item) {
@@ -402,9 +399,16 @@ class Editor {
     // Without a new size picked, keep the size it was turned and stretched to.
     const fontSize = res.fontSize || current.fontSize;
     const maxWidth = res.fontSize ? this.W * 0.85 : Math.max(this.W * 0.85, current.w);
-    await ensureFont(res.font, res.text);
-    const lay = layoutText(res.text, res.font, fontSize, maxWidth);
-    this.layer.replace({ ...current, text: res.text, font: res.font, fontSize, lines: lay.lines, w: lay.w, h: lay.h });
+    const fields = await this.textFields(res.text, res.scales, res.font, fontSize, maxWidth);
+    const { lines, ...rest } = current; // drop the old-style layout
+    this.layer.replace({ ...rest, ...fields });
+  }
+
+  // Lays out words (each letter may have its own size) for a text item.
+  async textFields(text, scales, font, fontSize, maxWidth) {
+    await ensureFont(font, text);
+    const layout = layoutRichText(text, scales, font, maxWidth / fontSize);
+    return { text, scales, font, fontSize, layout, w: layout.w * fontSize, h: layout.h * fontSize };
   }
 
   async addSticker() {
@@ -763,6 +767,13 @@ class Editor {
   async goHome() {
     await this.flush();
     location.hash = '#/';
+  }
+
+  // Opens the book in the reader at the page being worked on.
+  async read() {
+    await this.flush();
+    const p = readerPositionForPage(this.book.pageIds.length, this.index);
+    location.hash = `#/book/${this.book.id}/read/${p}`;
   }
 
   async destroy() {

@@ -5,7 +5,7 @@
 import { h } from './ui.js';
 import { uid } from './model.js';
 import { getStickerSrc } from './stickers.js';
-import { itemSize, fontCss, LINE_HEIGHT } from './render.js';
+import { itemSize, renderText, ensureFont } from './render.js';
 
 const MIN_SIZE = 40;      // page pixels
 const SNAP_DEGREES = 6;   // turning snaps to straight when this close
@@ -17,6 +17,7 @@ export function scaleItem(item, f, rot = item.rot) {
   switch (item.type) {
     case 'sticker': return { ...item, size: item.size * f, rot };
     case 'photo': return { ...item, w: item.w * f, h: item.h * f, rot };
+    // The layout is measured in multiples of the font size, so it scales too.
     case 'text': return { ...item, fontSize: item.fontSize * f, w: item.w * f, h: item.h * f, rot };
     default: return item;
   }
@@ -48,9 +49,12 @@ export class ItemsLayer {
   get selected() { return this.items.find(i => i.id === this.selectedId) || null; }
 
   setScale(s) {
+    const changed = Math.abs(s - this.scale) > 0.001;
     this.scale = s;
     this.el.style.transform = `scale(${s})`;
     this.el.style.setProperty('--inv', String(1 / s));
+    // Words are pictures drawn at screen resolution, so redraw them.
+    if (changed && this.items.some(i => i.type === 'text')) this.render();
   }
 
   // New items from outside (page load, undo). Keeps the selection if the
@@ -133,11 +137,25 @@ export class ItemsLayer {
     } else if (item.type === 'photo') {
       el.append(h('img', { alt: '', draggable: false, src: this.photoUrl(item.blob) }));
     } else if (item.type === 'text') {
-      el.textContent = item.lines.join('\n');
-      el.style.color = item.color;
+      // Drawn with the same code as thumbnails and printing, so it matches.
+      const c = h('canvas.text-canvas');
+      el.append(c);
+      this.drawText(c, item);
+      ensureFont(item.font, item.text).then(() => this.drawText(c, item));
     }
     this.place(el, item);
     return el;
+  }
+
+  // The canvas is a bit bigger than the item so tall or curly letters
+  // aren't cut off (see .text-canvas in the CSS).
+  drawText(canvas, item) {
+    const k = this.scale * (window.devicePixelRatio || 1);
+    canvas.width = Math.max(1, Math.ceil(item.w * 1.2 * k));
+    canvas.height = Math.max(1, Math.ceil(item.h * 1.4 * k));
+    const ctx = canvas.getContext('2d');
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    renderText(ctx, item, k);
   }
 
   // Positions an element (an item or the selection box) over the page.
@@ -148,10 +166,6 @@ export class ItemsLayer {
     el.style.setProperty('--w', w + 'px');
     el.style.setProperty('--h', h + 'px');
     el.style.transform = `translate(${item.x - w / 2}px, ${item.y - h / 2}px) rotate(${item.rot || 0}deg)`;
-    if (item.type === 'text' && el !== this.sel) {
-      el.style.font = fontCss(item.font, item.fontSize);
-      el.style.lineHeight = String(LINE_HEIGHT);
-    }
   }
 
   placeSelection() {
