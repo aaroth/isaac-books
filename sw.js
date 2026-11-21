@@ -1,9 +1,10 @@
 // Keeps a copy of the app on this computer so it works without internet.
 //
 // Change VERSION whenever any app file changes: browsers then fetch the
-// new files and the next time the app opens it uses them.
+// new files, and the app switches to them the next time the bookshelf is
+// showing (see install.js).
 
-const VERSION = '2026-11-21.10';
+const VERSION = '2026-11-21.11';
 const APP_CACHE = `app-${VERSION}`;
 const STICKER_CACHE = 'stickers-v1';
 

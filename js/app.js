@@ -4,7 +4,7 @@
 //   #/book/<id>/read/<p>    reading a book, with p sheets turned
 //   #/book/<id>/print       printing a book as a booklet
 
-import { registerOffline } from './install.js';  // first, to catch the install offer
+import { registerOffline, applyUpdateIfReady } from './install.js';  // first, to catch the install offer
 import { openShelf } from './shelf.js';
 import { openEditor } from './editor.js';
 import { openReader } from './reader.js';
@@ -26,6 +26,8 @@ async function route() {
   if (token !== routeToken) return;
   root.replaceChildren();
   document.getElementById('dialog-root').replaceChildren();
+  // Back on the bookshelf with a new version waiting: switch to it now.
+  if (applyUpdateIfReady()) return;
 
   const edit = location.hash.match(/^#\/book\/([^/]+)\/edit(?:\/(\d+))?/);
   const read = location.hash.match(/^#\/book\/([^/]+)\/read(?:\/(\d+))?/);
