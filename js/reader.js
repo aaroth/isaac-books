@@ -100,6 +100,8 @@ class Reader {
         this.label,
         h('button.btn-add.add-text', { onclick: () => this.edit(), title: 'Change this page' },
           h('span.ico', {}, '✏️'), h('span.lbl', {}, 'Change it')),
+        h('button.btn-add.add-picture', { onclick: () => { location.hash = `#/book/${this.book.id}/print`; }, title: 'Print this book' },
+          h('span.ico', {}, '🖨️'), h('span.lbl', {}, 'Print')),
       ),
       this.stage,
     );

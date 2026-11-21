@@ -40,11 +40,13 @@ export async function openShelf(root) {
       h('div.book-menu-buttons', {},
         h('button.btn.btn-big.btn-go', { onclick: () => close('read') }, h('span', {}, '📖'), 'Read it'),
         h('button.btn.btn-big.btn-blue', { onclick: () => close('edit') }, h('span', {}, '✏️'), 'Make pages'),
+        h('button.btn.btn-big.btn-soft', { onclick: () => close('print') }, h('span', {}, '🖨️'), 'Print it'),
         h('button.btn.btn-soft.btn-small-danger', { onclick: () => close('delete') }, h('span', {}, '🗑️'), 'Throw away'),
       ),
     ));
     if (choice === 'read') location.hash = `#/book/${book.id}/read/0`;
     if (choice === 'edit') location.hash = `#/book/${book.id}/edit/0`;
+    if (choice === 'print') location.hash = `#/book/${book.id}/print`;
     if (choice === 'delete') {
       const ok = await confirmDialog({
         icon: '🗑️', text: 'Throw this book away? It will be gone forever.',

@@ -18,6 +18,16 @@ export const limb = (d, color, width = 17) =>
   `<path d="${d}" fill="none" stroke="${shade(color, -0.35)}" stroke-width="${width + 5}" stroke-linecap="round" stroke-linejoin="round"/>` +
   `<path d="${d}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"/>`;
 
+export function starPoints(cx, cy, outer, inner) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 ? inner : outer;
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    pts.push(`${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`);
+  }
+  return pts.join(' ');
+}
+
 const outline = dark => `stroke="${dark}" stroke-width="3" stroke-linejoin="round"`;
 const eye = (x, y, r = 6) =>
   `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" stroke="#333" stroke-width="1.5"/><circle cx="${x + r * 0.25}" cy="${y + r * 0.1}" r="${r * 0.55}" fill="#222"/><circle cx="${x + r * 0.45}" cy="${y - r * 0.25}" r="${r * 0.18}" fill="#fff"/>`;
@@ -282,6 +292,252 @@ export const DINOSAURS = {
   'ptera': { name: 'Pteranodon', draw: () => pteranodon({ body: '#8d6e63', dark: '#3e2723', wing: '#ffab91', crest: '#e53935' }) },
   'plesio': { name: 'Plesiosaurus', draw: () => plesiosaurus({ body: '#5c6bc0', dark: '#1a237e', belly: '#c5cae9' }) },
   'baby-dino': { name: 'Baby dino', draw: () => babyDino({ body: '#81c784', dark: '#2e7d32' }) },
+};
+
+// ---------- dogs and cats (sitting, facing us) ----------
+
+const MIRROR = 'transform="matrix(-1 0 0 1 200 0)"';
+const both = path => `${path}<g ${MIRROR}>${path}</g>`;
+
+const DOG_EARS = {
+  floppy: c => both(`<path d="M64 50 C48 50 40 70 44 96 C46 104 56 104 60 96 C64 84 66 66 72 56 Z" fill="${c}"/>`),
+  long: c => both(`<path d="M64 50 C46 50 38 76 42 112 C44 122 58 122 60 110 C64 92 66 68 72 56 Z" fill="${c}"/>`),
+  pointy: c => both(`<path d="M66 56 L60 12 L94 40 Z" fill="${c}"/><path d="M70 48 L66 24 L86 40 Z" fill="#f8bbd0"/>`),
+  big: c => both(`<path d="M66 60 L46 2 L96 40 Z" fill="${c}"/><path d="M70 50 L56 16 L86 42 Z" fill="#f8bbd0"/>`),
+  fold: c => both(`<path d="M62 44 L86 34 L76 60 Z" fill="${c}"/>`),
+};
+
+function dog(o) {
+  const st = outline(o.dark);
+  const hw = o.headW || 42;
+  const short = o.short ? 14 : 0;
+  const p = [];
+  if (o.poodle) {
+    p.push(`<circle cx="160" cy="132" r="14" fill="${o.fur}" ${st}/><path d="M138 168 C150 160 156 150 156 142" stroke="${o.dark}" stroke-width="5" fill="none"/>`);
+  } else {
+    p.push(`<path d="M134 162 C160 152 170 128 162 110 C174 118 178 146 156 168 Z" fill="${o.tail || o.fur}" ${st}/>`);
+  }
+  p.push(`<path d="M64 192 C58 152 70 120 100 116 C130 120 142 152 136 192 Z" fill="${o.fur}" ${st}/>`);
+  if (o.saddle) p.push(`<path d="M70 150 C70 128 86 120 100 120 C114 120 130 128 130 150 C120 140 80 140 70 150 Z" fill="${o.saddle}"/>`);
+  if (o.chest) p.push(`<ellipse cx="100" cy="150" rx="18" ry="24" fill="${o.chest}"/>`);
+  if (o.patches) p.push(`<ellipse cx="78" cy="160" rx="12" ry="10" fill="${o.patches}"/><ellipse cx="124" cy="140" rx="9" ry="8" fill="${o.patches}"/>`);
+  if (o.spots) p.push([[76, 146, 5], [122, 152, 6], [88, 170, 4], [118, 176, 5], [70, 172, 4], [130, 168, 3]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${o.spots}"/>`).join(''));
+  p.push(`<ellipse cx="66" cy="${178 + short / 2}" rx="20" ry="${15 - short / 4}" fill="${o.fur}" ${st}/><ellipse cx="134" cy="${178 + short / 2}" rx="20" ry="${15 - short / 4}" fill="${o.fur}" ${st}/>`);
+  p.push(`<rect x="80" y="${140 + short}" width="16" height="${52 - short}" rx="8" fill="${o.legs || o.fur}" ${st}/><rect x="104" y="${140 + short}" width="16" height="${52 - short}" rx="8" fill="${o.legs || o.fur}" ${st}/>`);
+  p.push(`<ellipse cx="88" cy="190" rx="11" ry="6" fill="${o.paws || o.fur}" ${st}/><ellipse cx="112" cy="190" rx="11" ry="6" fill="${o.paws || o.fur}" ${st}/>`);
+  if (o.poodle) {
+    p.push([[66, 180], [134, 180], [88, 188], [112, 188], [100, 140]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="13" fill="${o.fur}" ${st}/>`).join(''));
+  }
+  p.push(`<path d="M72 120 Q100 132 128 120 L128 129 Q100 141 72 129 Z" fill="${o.collar || '#e53935'}" ${st}/><circle cx="100" cy="138" r="5.5" fill="#ffd23f" stroke="#c79100" stroke-width="1.5"/>`);
+  const earColor = o.earColor || o.fur;
+  const earsBehind = ['pointy', 'big'].includes(o.ears);
+  if (earsBehind) p.push(DOG_EARS[o.ears](earColor));
+  if (o.poodle) p.push(`<circle cx="100" cy="38" r="22" fill="${o.fur}" ${st}/>`);
+  p.push(`<ellipse cx="100" cy="74" rx="${hw}" ry="38" fill="${o.fur}" ${st}/>`);
+  if (o.mask) p.push(`<path d="M${100 - hw + 4} 80 C66 112 134 112 ${100 + hw - 4} 80 C128 92 112 84 100 96 C88 84 72 92 ${100 - hw + 4} 80 Z" fill="${o.mask}"/><path d="M94 40 L100 66 L106 40 Z" fill="${o.mask}"/>`);
+  if (o.blaze) p.push(`<path d="M94 38 C96 50 94 64 92 80 L108 80 C106 64 104 50 106 38 Z" fill="${o.blaze}"/>`);
+  if (o.patch) p.push(`<ellipse cx="117" cy="68" rx="15" ry="13" fill="${o.patch}"/>`);
+  if (o.headSpots) p.push([[76, 54, 4], [126, 50, 5], [70, 84, 3]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${o.headSpots}"/>`).join(''));
+  if (!earsBehind && o.ears !== 'poodle') p.push(DOG_EARS[o.ears](earColor));
+  if (o.poodle) p.push(both(`<circle cx="56" cy="82" r="17" fill="${o.fur}" ${st}/>`));
+  p.push(`<ellipse cx="100" cy="94" rx="${o.wide ? 28 : 22}" ry="15" fill="${o.muzzle || o.fur}"/>`);
+  if (o.wrinkles) p.push(`<path d="M88 52 Q100 46 112 52 M90 58 Q100 54 110 58" stroke="${o.dark}" stroke-width="2.5" fill="none" stroke-linecap="round"/>`);
+  if (o.jowls) p.push(both(`<path d="M76 92 C70 104 76 114 88 112 Z" fill="${o.muzzle || o.fur}" ${st}/>`));
+  p.push(eye(84, 70, 6.5) + eye(116, 70, 6.5));
+  if (o.eyeColor) p.push(`<circle cx="85.6" cy="70.6" r="3.6" fill="${o.eyeColor}"/><circle cx="117.6" cy="70.6" r="3.6" fill="${o.eyeColor}"/><circle cx="85.6" cy="70.6" r="1.6" fill="#222"/><circle cx="117.6" cy="70.6" r="1.6" fill="#222"/>`);
+  p.push(`<ellipse cx="100" cy="86" rx="9" ry="6.5" fill="#222"/><ellipse cx="97" cy="84" rx="2.5" ry="1.5" fill="#fff" opacity="0.7"/>`);
+  if (o.tongue) p.push(`<path d="M94 100 Q100 116 106 100 Z" fill="#ff7096" stroke="#c2185b" stroke-width="1.5"/>`);
+  p.push(`<path d="M100 92 V98 M100 98 Q92 104 86 99 M100 98 Q108 104 114 99" stroke="#222" stroke-width="2.5" fill="none" stroke-linecap="round"/>`);
+  if (o.underbite) p.push(`<path d="M92 102 L94 97 L96 102 M104 102 L106 97 L108 102" stroke="#fff" stroke-width="2" fill="none"/>`);
+  return svgDoc(p.join(''));
+}
+
+function cat(o) {
+  const st = outline(o.dark);
+  const k = o.kitten;
+  const p = [];
+  const tail = o.points || o.fur;
+  if (o.fluffy) p.push(`<path d="M132 180 C176 186 186 144 168 122 C160 114 150 120 156 130 C168 150 160 168 130 168 Z" fill="${tail}" ${st} stroke-dasharray="0"/>`);
+  else p.push(`<path d="M134 182 C170 184 178 150 166 128 C162 122 155 124 158 131 C166 150 160 170 132 172 Z" fill="${tail}" ${st}/>`);
+  const bodyTop = k ? 128 : 118;
+  p.push(`<path d="M70 192 C62 156 72 ${bodyTop + 6} 100 ${bodyTop} C128 ${bodyTop + 6} 138 156 130 192 Z" fill="${o.fur}" ${st}/>`);
+  if (o.stripes) p.push([[76, 150], [80, 166], [124, 150], [120, 166]].map(([x, y]) => `<path d="M${x} ${y} q${x < 100 ? 8 : -8} 4 ${x < 100 ? 12 : -12} 0" stroke="${o.stripes}" stroke-width="4" fill="none" stroke-linecap="round"/>`).join(''));
+  if (o.chest) p.push(`<path d="M100 ${bodyTop + 4} C86 ${bodyTop + 6} 84 158 100 180 C116 158 114 ${bodyTop + 6} 100 ${bodyTop + 4} Z" fill="${o.chest}"/>`);
+  if (o.patchesA) p.push(`<ellipse cx="80" cy="168" rx="11" ry="9" fill="${o.patchesA}"/><ellipse cx="122" cy="150" rx="9" ry="11" fill="${o.patchesB}"/>`);
+  p.push(`<ellipse cx="72" cy="180" rx="16" ry="12" fill="${o.fur}" ${st}/><ellipse cx="128" cy="180" rx="16" ry="12" fill="${o.fur}" ${st}/>`);
+  const legC = o.points || o.fur;
+  p.push(`<rect x="85" y="146" width="13" height="46" rx="6.5" fill="${legC}" ${st}/><rect x="102" y="146" width="13" height="46" rx="6.5" fill="${legC}" ${st}/>`);
+  p.push(`<ellipse cx="91.5" cy="190" rx="9" ry="5" fill="${o.paws || legC}" ${st}/><ellipse cx="108.5" cy="190" rx="9" ry="5" fill="${o.paws || legC}" ${st}/>`);
+  if (o.bow) p.push(`<path d="M100 ${bodyTop + 4} L88 ${bodyTop - 4} L88 ${bodyTop + 12} Z M100 ${bodyTop + 4} L112 ${bodyTop - 4} L112 ${bodyTop + 12} Z" fill="${o.bow}" ${st}/><circle cx="100" cy="${bodyTop + 4}" r="4" fill="${o.bow}"/>`);
+  const ears = o.points || o.ears || o.fur;
+  p.push(both(`<path d="M66 62 L60 ${k ? 26 : 20} L92 46 Z" fill="${ears}" ${st}/><path d="M70 56 L66 ${k ? 36 : 32} L86 47 Z" fill="#f8bbd0"/>`));
+  if (o.fluffy) p.push(`<path d="M58 70 L52 62 L60 58 L58 48 L68 50 L70 40 L80 46 L86 36 L94 44 L100 36 L106 44 L114 36 L120 46 L130 40 L132 50 L142 48 L140 58 L148 62 L142 70 L150 78 L142 84 L148 94 L138 96 L140 106 L128 104 L124 114 L112 108 L100 116 L88 108 L76 114 L72 104 L60 106 L62 96 L52 94 L58 84 L50 78 Z" fill="${o.fur}" ${st}/>`);
+  p.push(`<ellipse cx="100" cy="78" rx="40" ry="34" fill="${o.fur}" ${st}/>`);
+  if (o.patchesA) p.push(`<path d="M64 70 C64 50 82 44 94 46 C88 56 82 66 64 70 Z" fill="${o.patchesA}"/><path d="M136 66 C134 52 122 46 110 47 C118 56 124 62 136 66 Z" fill="${o.patchesB}"/>`);
+  if (o.chest) p.push(`<path d="M100 74 C86 74 76 86 78 98 C84 108 116 108 122 98 C124 86 114 74 100 74 Z" fill="${o.chest}"/>`);
+  if (o.points) p.push(`<ellipse cx="100" cy="88" rx="22" ry="18" fill="${o.points}" opacity="0.85"/>`);
+  if (o.stripes) p.push(`<path d="M88 50 L92 60 L100 52 L108 60 L112 50" stroke="${o.stripes}" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M62 74 L74 76 M62 84 L74 82 M138 74 L126 76 M138 84 L126 82" stroke="${o.stripes}" stroke-width="3.5" stroke-linecap="round"/>`);
+  const er = k ? 9 : 7;
+  for (const x of [84, 116]) {
+    p.push(`<ellipse cx="${x}" cy="76" rx="${er}" ry="${er + 1.5}" fill="${o.eyeColor || '#9ccc65'}" stroke="#333" stroke-width="1.5"/>`);
+    p.push(`<ellipse cx="${x}" cy="76.5" rx="${k ? 4.5 : 2.4}" ry="${er}" fill="#222"/><circle cx="${x + 2.5}" cy="72" r="${k ? 2.4 : 1.6}" fill="#fff"/>`);
+  }
+  p.push(`<path d="M95 88 L105 88 L100 94 Z" fill="#ff8fab" stroke="#c2185b" stroke-width="1"/>`);
+  p.push(`<path d="M100 94 Q94 100 89 96 M100 94 Q106 100 111 96" stroke="#333" stroke-width="2.2" fill="none" stroke-linecap="round"/>`);
+  p.push(both(`<path d="M86 92 L56 86 M86 96 L56 98" stroke="${o.whiskers || '#555'}" stroke-width="1.6" stroke-linecap="round"/>`));
+  return svgDoc(p.join(''));
+}
+
+export const PETS = {
+  'dog-golden': { name: 'Golden retriever', draw: () => dog({ fur: '#f0b85a', dark: '#a0682a', muzzle: '#f7d59a', chest: '#f7d59a', ears: 'floppy', earColor: '#d99a3e', tongue: true }) },
+  'dog-dalmatian': { name: 'Dalmatian', draw: () => dog({ fur: '#ffffff', dark: '#666', ears: 'floppy', earColor: '#222', spots: '#222', headSpots: '#222', collar: '#1e88e5' }) },
+  'dog-husky': { name: 'Husky', draw: () => dog({ fur: '#7f8c99', dark: '#3c4a56', mask: '#ffffff', muzzle: '#ffffff', chest: '#ffffff', paws: '#ffffff', ears: 'pointy', eyeColor: '#4fc3f7', collar: '#ff9800' }) },
+  'dog-pug': { name: 'Pug', draw: () => dog({ fur: '#e8c79a', dark: '#8d6e47', muzzle: '#4a3b2f', ears: 'fold', earColor: '#4a3b2f', headW: 47, wide: true, wrinkles: true, tongue: true, collar: '#43a047' }) },
+  'dog-corgi': { name: 'Corgi', draw: () => dog({ fur: '#f29b4b', dark: '#a8581b', muzzle: '#ffffff', chest: '#ffffff', paws: '#ffffff', blaze: '#ffffff', ears: 'big', short: true, tongue: true, collar: '#1e88e5' }) },
+  'dog-poodle': { name: 'Poodle', draw: () => dog({ fur: '#f8bbd0', dark: '#c2185b', muzzle: '#fce4ec', ears: 'poodle', poodle: true, collar: '#8e24aa' }) },
+  'dog-beagle': { name: 'Beagle', draw: () => dog({ fur: '#c98a4b', dark: '#6d4422', muzzle: '#ffffff', chest: '#ffffff', paws: '#ffffff', blaze: '#ffffff', saddle: '#3a2a1e', ears: 'long', earColor: '#8d5a2b' }) },
+  'dog-chihuahua': { name: 'Chihuahua', draw: () => dog({ fur: '#e9c08a', dark: '#9a6b35', muzzle: '#f5dcb6', ears: 'big', headW: 40, short: true, collar: '#ff4081' }) },
+  'dog-shepherd': { name: 'German shepherd', draw: () => dog({ fur: '#c8874a', dark: '#5d3a1a', muzzle: '#3a2a1e', saddle: '#3a2a1e', ears: 'pointy', earColor: '#3a2a1e', tongue: true }) },
+  'dog-lab': { name: 'Black lab', draw: () => dog({ fur: '#333333', dark: '#111111', muzzle: '#444444', ears: 'floppy', earColor: '#222222', collar: '#e53935', tongue: true }) },
+  'dog-puppy': { name: 'Puppy', draw: () => dog({ fur: '#bcaaa4', dark: '#6d4c41', muzzle: '#efebe9', patch: '#6d4c41', ears: 'floppy', earColor: '#6d4c41', tongue: true, collar: '#fdd835' }) },
+  'dog-bulldog': { name: 'Bulldog', draw: () => dog({ fur: '#f5efe4', dark: '#8d6e47', muzzle: '#f5efe4', patches: '#c9a27a', patch: '#c9a27a', ears: 'fold', earColor: '#c9a27a', headW: 48, wide: true, jowls: true, underbite: true, collar: '#212121' }) },
+  'cat-orange': { name: 'Orange tabby', draw: () => cat({ fur: '#f6a04d', dark: '#a85a1c', stripes: '#c46a1e', eyeColor: '#9ccc65' }) },
+  'cat-grey': { name: 'Grey tabby', draw: () => cat({ fur: '#a7b1ba', dark: '#4f5b66', stripes: '#5f6b76', eyeColor: '#ffd54f' }) },
+  'cat-black': { name: 'Black cat', draw: () => cat({ fur: '#2b2b2b', dark: '#000000', eyeColor: '#ffd23f', whiskers: '#bbb', bow: '#e53935' }) },
+  'cat-white': { name: 'White cat', draw: () => cat({ fur: '#ffffff', dark: '#9e9e9e', eyeColor: '#64b5f6', bow: '#ff80ab' }) },
+  'cat-tuxedo': { name: 'Tuxedo cat', draw: () => cat({ fur: '#2b2b2b', dark: '#000000', chest: '#ffffff', paws: '#ffffff', eyeColor: '#9ccc65', whiskers: '#999' }) },
+  'cat-calico': { name: 'Calico cat', draw: () => cat({ fur: '#ffffff', dark: '#8d6e63', patchesA: '#f6a04d', patchesB: '#3e3e3e', eyeColor: '#ffb300' }) },
+  'cat-siamese': { name: 'Siamese cat', draw: () => cat({ fur: '#f3e6cf', dark: '#8d6e4f', points: '#5d4037', eyeColor: '#4fc3f7', whiskers: '#ddd' }) },
+  'cat-fluffy': { name: 'Fluffy cat', draw: () => cat({ fur: '#f5deb3', dark: '#a0825a', fluffy: true, eyeColor: '#ff9800' }) },
+  'cat-kitten': { name: 'Kitten', draw: () => cat({ fur: '#bdbdbd', dark: '#616161', chest: '#ffffff', paws: '#ffffff', kitten: true, eyeColor: '#80deea' }) },
+};
+
+// ---------- knights ----------
+
+const STEEL = '#cfd8dc', STEEL_DARK = '#607d8b';
+
+const KNIGHT_EMBLEMS = {
+  cross: c => `<path d="M95 100 h10 v12 h12 v10 h-12 v22 h-10 v-22 h-12 v-10 h12 Z" fill="${c}"/>`,
+  star: c => `<polygon points="${starPoints(100, 120, 15, 6.5)}" fill="${c}"/>`,
+  crown: c => `<path d="M84 128 L84 108 L92 118 L100 104 L108 118 L116 108 L116 128 Z" fill="${c}" stroke="${shade(c.startsWith('#') ? c : '#ffd23f', -0.3)}" stroke-width="2"/>`,
+  dragon: c => `<path d="M86 128 C84 114 94 104 104 106 L116 100 L112 110 C118 116 114 128 104 128 C100 122 94 122 92 128 Z" fill="${c}"/><circle cx="108" cy="108" r="1.6" fill="#fff"/>`,
+  lion: c => `<circle cx="100" cy="118" r="13" fill="${c}"/><circle cx="100" cy="119" r="7" fill="${shade(c.startsWith('#') ? c : '#ffd23f', 0.4)}"/><circle cx="97" cy="117" r="1.3" fill="#333"/><circle cx="103" cy="117" r="1.3" fill="#333"/>`,
+};
+
+function shieldPath(x, y, w, hh) {
+  return `M${x} ${y} L${x + w} ${y} L${x + w} ${y + hh * 0.5} C${x + w} ${y + hh * 0.85} ${x + w / 2} ${y + hh} ${x + w / 2} ${y + hh} C${x + w / 2} ${y + hh} ${x} ${y + hh * 0.85} ${x} ${y + hh * 0.5} Z`;
+}
+
+function knight(o) {
+  const st = outline(STEEL_DARK);
+  const p = [];
+  // Sword, held up in the right hand (our right).
+  p.push(`<path d="M146 112 L160 22 L168 24 L156 114 Z" fill="#eceff1" stroke="#78909c" stroke-width="2.5" stroke-linejoin="round"/>`);
+  p.push(`<path d="M160 24 L164 10 L168 24 Z" fill="#eceff1" stroke="#78909c" stroke-width="2"/>`);
+  p.push(`<path d="M138 112 L166 116" stroke="#8d6e63" stroke-width="7" stroke-linecap="round"/><path d="M151 117 L148 134" stroke="#5d4037" stroke-width="7" stroke-linecap="round"/><circle cx="147" cy="137" r="5" fill="#ffd23f"/>`);
+  // Cape
+  if (o.cape) p.push(`<path d="M74 84 C60 120 56 160 52 190 L148 190 C144 160 140 120 126 84 Z" fill="${o.cape}" stroke="${shade(o.cape, -0.35)}" stroke-width="3"/>`);
+  // Legs
+  p.push(`<rect x="80" y="150" width="17" height="34" rx="6" fill="${STEEL}" ${st}/><rect x="103" y="150" width="17" height="34" rx="6" fill="${STEEL}" ${st}/>`);
+  p.push(`<circle cx="88.5" cy="164" r="5" fill="${STEEL}" ${st}/><circle cx="111.5" cy="164" r="5" fill="${STEEL}" ${st}/>`);
+  p.push(`<path d="M76 180 h24 v10 h-28 Z M100 180 h24 l4 10 h-28 Z" fill="#546e7a" ${st}/>`);
+  // Chainmail and tabard
+  p.push(`<rect x="70" y="84" width="60" height="70" rx="14" fill="#b0bec5" ${st}/>`);
+  p.push(`<path d="M74 88 L126 88 L130 156 L100 148 L70 156 Z" fill="${o.tabard}" stroke="${shade(o.tabard, -0.35)}" stroke-width="3" stroke-linejoin="round"/>`);
+  p.push(KNIGHT_EMBLEMS[o.emblem](o.emblemColor || '#ffd23f'));
+  p.push(`<rect x="72" y="138" width="56" height="8" fill="#5d4037"/><rect x="95" y="136" width="10" height="12" rx="2" fill="#ffd23f"/>`);
+  // Arms in armor
+  p.push(limb('M74 92 L60 118', STEEL, 15) + limb('M126 92 L146 120', STEEL, 15));
+  p.push(`<circle cx="74" cy="92" r="11" fill="${STEEL}" ${st}/><circle cx="126" cy="92" r="11" fill="${STEEL}" ${st}/>`);
+  p.push(`<circle cx="148" cy="122" r="8" fill="#90a4ae" ${st}/>`);
+  // Shield on the left arm
+  p.push(`<path d="${shieldPath(26, 96, 50, 66)}" fill="${o.shield}" stroke="${shade(o.shield, -0.4)}" stroke-width="3.5"/>`);
+  p.push(`<path d="${shieldPath(32, 102, 38, 52)}" fill="none" stroke="${o.shieldTrim || '#ffd23f'}" stroke-width="3"/>`);
+  p.push(`<g transform="translate(-49 4)">${KNIGHT_EMBLEMS[o.emblem](o.shieldTrim || '#ffd23f')}</g>`);
+  // Head
+  if (o.closed) {
+    p.push(`<path d="M74 70 C72 34 128 34 126 70 L126 82 C112 88 88 88 74 82 Z" fill="${o.helmet || STEEL}" ${st}/>`);
+    p.push(`<rect x="80" y="56" width="40" height="6" rx="3" fill="#263238"/><path d="M100 40 V82" stroke="${STEEL_DARK}" stroke-width="2.5"/>`);
+    p.push([88, 94, 106, 112].map(x => `<circle cx="${x}" cy="72" r="1.6" fill="#263238"/>`).join(''));
+    if (o.eyes) p.push(`<circle cx="90" cy="59" r="2" fill="${o.eyes}"/><circle cx="110" cy="59" r="2" fill="${o.eyes}"/>`);
+  } else {
+    if (o.braid) p.push(`<path d="M122 64 C138 74 134 96 140 110" stroke="${o.hair}" stroke-width="9" fill="none" stroke-linecap="round"/><circle cx="140" cy="112" r="5" fill="${o.bow || '#e91e63'}"/>`);
+    p.push(`<circle cx="100" cy="60" r="22" fill="${o.skin}" stroke="${shade(o.skin, -0.3)}" stroke-width="2"/>`);
+    p.push(eye(92, 60, 4.5) + eye(108, 60, 4.5));
+    p.push(`<path d="M92 70 Q100 77 108 70" stroke="#6d3b1f" stroke-width="2.5" fill="none" stroke-linecap="round"/>`);
+    p.push(`<path d="M74 62 C72 26 128 26 126 62 L126 82 L116 82 L116 52 C112 44 88 44 84 52 L84 82 L74 82 Z" fill="${o.helmet || STEEL}" ${st}/>`);
+    p.push(`<path d="M97 34 h6 v18 h-6 Z" fill="${STEEL_DARK}"/>`);
+  }
+  // Plume
+  p.push(`<path d="M100 32 C104 14 124 8 136 16 C124 16 114 22 108 34 Z" fill="${o.plume}" stroke="${shade(o.plume, -0.35)}" stroke-width="2"/>`);
+  return svgDoc(p.join(''));
+}
+
+function knightOnHorse(o) {
+  const st = outline('#5d4037');
+  return svgDoc(`
+    <path d="M38 112 C20 116 12 132 10 150 C20 140 28 134 40 132 Z" fill="#6d4c41" ${st}/>
+    <rect x="52" y="140" width="13" height="44" rx="5" fill="#8d6e63" ${st}/><rect x="124" y="140" width="13" height="44" rx="5" fill="#8d6e63" ${st}/>
+    <ellipse cx="94" cy="128" rx="58" ry="28" fill="#a1887f" ${st}/>
+    <path d="M40 118 L148 118 L152 160 L136 154 L124 162 L108 154 L94 162 L80 154 L66 162 L52 154 L38 160 Z" fill="${o.cloth}" stroke="${shade(o.cloth, -0.35)}" stroke-width="3" stroke-linejoin="round"/>
+    <polygon points="${starPoints(96, 138, 10, 4.4)}" fill="#ffd23f"/>
+    <rect x="66" y="146" width="13" height="40" rx="5" fill="#a1887f" ${st}/><rect x="138" y="146" width="13" height="40" rx="5" fill="#a1887f" ${st}/>
+    <path d="M136 112 C144 92 148 74 158 62 L176 70 C170 84 160 104 152 126 Z" fill="#a1887f" ${st}/>
+    <path d="M156 60 C166 50 184 52 194 64 C198 72 192 80 184 78 L170 76 Z" fill="#a1887f" ${st}/>
+    <path d="M162 56 L160 44 L170 52 Z" fill="#a1887f" ${st}/>
+    <path d="M152 64 C142 76 138 92 134 108" stroke="#5d4037" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <circle cx="176" cy="62" r="2.6" fill="#222"/><circle cx="191" cy="70" r="1.6" fill="#5d4037"/>
+    <path d="M168 66 L154 92 L130 98" stroke="#5d4037" stroke-width="2.5" fill="none"/>
+    <path d="M86 110 C84 92 88 80 100 76 C112 80 116 92 114 110 Z" fill="${o.cloth}" stroke="${shade(o.cloth, -0.35)}" stroke-width="3"/>
+    <rect x="94" y="104" width="10" height="26" rx="4" fill="${STEEL}" stroke="${STEEL_DARK}" stroke-width="2.5"/>
+    <path d="M86 70 C84 46 116 46 114 70 L114 80 C106 84 94 84 86 80 Z" fill="${STEEL}" stroke="${STEEL_DARK}" stroke-width="3"/>
+    <rect x="90" y="62" width="22" height="5" rx="2.5" fill="#263238"/>
+    <path d="M100 50 C104 34 120 30 130 36 C120 36 112 42 108 52 Z" fill="${o.plume}"/>
+    <path d="M80 96 L196 20" stroke="#8d6e63" stroke-width="5" stroke-linecap="round"/>
+    <path d="M190 24 L200 16 L196 28 Z" fill="#cfd8dc"/>
+    <path d="M70 98 L84 92 L86 104 Z" fill="#eceff1" stroke="#78909c" stroke-width="2"/>
+    <path d="${shieldPath(66, 88, 26, 34)}" fill="${o.shield}" stroke="${shade(o.shield, -0.4)}" stroke-width="3"/>
+    <path d="M79 94 V116 M70 103 H88" stroke="#ffd23f" stroke-width="3"/>`);
+}
+
+function shieldSticker(color, trim, emblem) {
+  return svgDoc(`
+    <path d="${shieldPath(40, 16, 120, 168)}" fill="${color}" stroke="${shade(color, -0.4)}" stroke-width="6"/>
+    <path d="${shieldPath(54, 30, 92, 130)}" fill="none" stroke="${trim}" stroke-width="6"/>
+    <g transform="translate(-100 -150) scale(2)">${KNIGHT_EMBLEMS[emblem](trim)}</g>`);
+}
+
+function swordSticker() {
+  return svgDoc(`
+    <path d="M92 150 L92 30 L100 8 L108 30 L108 150 Z" fill="#eceff1" stroke="#78909c" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M100 14 V146" stroke="#b0bec5" stroke-width="2"/>
+    <rect x="62" y="146" width="76" height="12" rx="6" fill="#ffb300" stroke="#a66b00" stroke-width="3"/>
+    <rect x="93" y="158" width="14" height="28" rx="4" fill="#6d4c41" stroke="#3e2723" stroke-width="3"/>
+    <circle cx="100" cy="190" r="8" fill="#ffb300" stroke="#a66b00" stroke-width="3"/>
+    <circle cx="100" cy="152" r="4" fill="#e53935"/>`);
+}
+
+function bannerSticker(color) {
+  return svgDoc(`
+    <rect x="46" y="12" width="8" height="182" rx="4" fill="#8d6e63" stroke="#5d4037" stroke-width="2.5"/>
+    <circle cx="50" cy="12" r="7" fill="#ffd23f" stroke="#a66b00" stroke-width="2"/>
+    <path d="M54 24 C90 14 120 34 170 22 L160 58 L170 94 C120 106 90 86 54 96 Z" fill="${color}" stroke="${shade(color, -0.35)}" stroke-width="3" stroke-linejoin="round"/>
+    <polygon points="${starPoints(110, 60, 18, 8)}" fill="#ffd23f"/>`);
+}
+
+export const KNIGHTS = {
+  'knight-red': { name: 'Red knight', draw: () => knight({ tabard: '#e53935', emblem: 'lion', shield: '#e53935', plume: '#ffd23f', skin: '#f1c27d', cape: '#8e1b1b' }) },
+  'knight-blue': { name: 'Blue knight', draw: () => knight({ tabard: '#1e63c6', emblem: 'star', shield: '#1e63c6', plume: '#e53935', skin: '#e0ac69' }) },
+  'knight-gold': { name: 'Gold knight', draw: () => knight({ tabard: '#ffb300', emblem: 'crown', emblemColor: '#ffffff', shield: '#ffb300', shieldTrim: '#ffffff', plume: '#8e24aa', skin: '#8d5524', helmet: '#ffe082', cape: '#6a1b9a' }) },
+  'knight-green': { name: 'Green knight', draw: () => knight({ tabard: '#2e7d32', emblem: 'dragon', shield: '#2e7d32', plume: '#ffd23f', skin: '#ffdbac', braid: true, hair: '#f9a825' }) },
+  'knight-white': { name: 'Brave knight', draw: () => knight({ tabard: '#fafafa', emblem: 'cross', emblemColor: '#e53935', shield: '#fafafa', shieldTrim: '#e53935', plume: '#e53935', closed: true }) },
+  'knight-black': { name: 'Black knight', draw: () => knight({ tabard: '#212121', emblem: 'dragon', emblemColor: '#b71c1c', shield: '#212121', shieldTrim: '#b71c1c', plume: '#b71c1c', closed: true, helmet: '#546e7a', eyes: '#ff1744', cape: '#4a148c' }) },
+  'knight-horse': { name: 'Knight on a horse', draw: () => knightOnHorse({ cloth: '#1e63c6', shield: '#e53935', plume: '#e53935' }) },
+  'knight-horse-red': { name: 'Charging knight', draw: () => knightOnHorse({ cloth: '#e53935', shield: '#ffb300', plume: '#ffd23f' }) },
+  'shield-lion': { name: 'Lion shield', draw: () => shieldSticker('#e53935', '#ffd23f', 'lion') },
+  'shield-dragon': { name: 'Dragon shield', draw: () => shieldSticker('#2e7d32', '#ffd23f', 'dragon') },
+  'sword': { name: 'Sword', draw: swordSticker },
+  'banner': { name: 'Banner', draw: () => bannerSticker('#1e63c6') },
 };
 
 // ---------- dragons ----------

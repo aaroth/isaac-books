@@ -745,6 +745,74 @@ button:disabled { cursor: default; opacity: 0.35; }
 .edge.left { left: 0; border-radius: 0 0 0 4px; }
 .edge.right { left: var(--pw); border-radius: 0 0 4px 0; }
 
+/* ---------- print screen ---------- */
+
+.print-screen {
+  height: 100%;
+  display: grid; grid-template-rows: 60px minmax(0, 1fr);
+  background: #fff8ee;
+}
+.print-body {
+  display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px;
+  padding: 16px 24px; overflow: auto;
+}
+.print-body h2 { margin: 4px 0 10px; font-size: 26px; }
+.print-steps { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+.print-step {
+  display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center;
+  background: #fff; border-radius: 18px; padding: 10px 14px;
+  box-shadow: 0 2px 8px rgba(120, 70, 20, 0.08);
+}
+.step-pic svg { width: 96px; height: 72px; display: block; }
+.print-step h3 { margin: 0 0 2px; font-size: 19px; }
+.print-step p { margin: 0; font-size: 15px; color: var(--ink-soft); line-height: 1.35; }
+.print-options { display: grid; gap: 6px; margin: 6px 0 14px; }
+.print-choice {
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  font-size: 17px; padding: 8px 12px; border-radius: 14px; border: 3px solid transparent; background: #fff;
+}
+.print-choice.selected { border-color: var(--orange); background: #fff4e0; }
+.print-choice input { width: 20px; height: 20px; accent-color: var(--orange-deep); }
+.print-buttons { display: flex; gap: 14px; flex-wrap: wrap; }
+.print-status { font-size: 16px; color: var(--ink-soft); min-height: 1.4em; }
+.print-note { margin: 0 0 12px; font-size: 15px; color: var(--ink-soft); line-height: 1.4; }
+.sheet-previews { display: grid; gap: 12px; }
+.sheet-preview { background: #fff; border-radius: 16px; padding: 10px 12px; box-shadow: 0 2px 8px rgba(120, 70, 20, 0.08); }
+.sheet-label { font-weight: 600; margin-bottom: 6px; }
+.sheet-sides { display: flex; gap: 12px; flex-wrap: wrap; }
+.sheet-sides figure { margin: 0; text-align: center; }
+.sheet-sides figcaption { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+.side-canvas { width: 176px; height: 136px; border-radius: 4px; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2); display: block; }
+
+/* What actually gets printed: one landscape letter page per sheet side.
+   The spread is shrunk a little so printers don't cut off the edges. */
+#print-root { display: none; }
+.print-sheet {
+  position: relative; width: 11in; height: 8.5in; overflow: hidden; background: #fff;
+  break-after: page; page-break-after: always;
+}
+.print-sheet:last-child { break-after: auto; page-break-after: auto; }
+.print-spread {
+  position: absolute; top: 0.25in; left: calc((11in - 10.36in) / 2);
+  width: 10.36in; height: 8in; display: flex;
+}
+.print-slot { position: relative; width: 50%; height: 100%; background: #fff; }
+.print-slot img { width: 100%; height: 100%; display: block; }
+.fold-mark { position: absolute; left: 5.5in; width: 0; height: 0.16in; border-left: 1px dashed #aaa; }
+.fold-mark.top { top: 0.04in; }
+.fold-mark.bottom { bottom: 0.04in; }
+.sheet-number {
+  position: absolute; bottom: 0.05in; left: 5.62in;
+  font: 9px var(--font); color: #999;
+}
+
+@media print {
+  @page { size: letter landscape; margin: 0; }
+  html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body > :not(#print-root) { display: none !important; }
+  #print-root { display: block !important; }
+}
+
 .credits { text-align: center; font-size: 13px; color: var(--ink-soft); margin-top: 28px; }
 .credits a { color: inherit; }
 
@@ -777,5 +845,6 @@ button:disabled { cursor: default; opacity: 0.35; }
   .add-buttons { margin-left: 4px; gap: 4px; }
   .paper-body { grid-template-columns: 1fr; }
   .text-dialog-body { grid-template-columns: 1fr; }
+  .print-body { grid-template-columns: 1fr; }
   .paper-swatches { grid-template-columns: repeat(6, 40px); }
 }
