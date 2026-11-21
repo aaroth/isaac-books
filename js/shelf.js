@@ -7,6 +7,38 @@ import { pickFile, messageDialog } from './dialogs.js';
 import { saveBooksToFile, readBookFile, addBookFromFile, FILE_EXTENSION } from './bookfile.js';
 import { canInstall, install, onInstallChange } from './install.js';
 import { soundOn, setSoundOn, chimeSound, popSound } from './sound.js';
+import { canNarrate, getVoices, englishVoices, pickVoice, setVoiceName, getRate, setRate, speak } from './narrator.js';
+
+// Settings for the "Read to me" voice, filled in once the voices load.
+function voiceSettings() {
+  const box = h('div.voice-settings');
+  if (!canNarrate()) return box;
+  getVoices().then(list => {
+    const voices = englishVoices(list).length ? englishVoices(list) : list;
+    if (!voices.length) {
+      box.append(h('p', {}, 'This computer has no voices for “Read to me”.'));
+      return;
+    }
+    const chosen = pickVoice(list);
+    const select = h('select.voice-select', { onchange: () => setVoiceName(select.value) },
+      voices.map(v => h('option', { value: v.name, selected: chosen && v.name === chosen.name },
+        v.name + (v.localService ? '' : ' (needs internet)'))));
+    const rate = h('input.voice-rate', {
+      type: 'range', min: '0.6', max: '1.3', step: '0.05', value: String(getRate()),
+      onchange: () => setRate(Number(rate.value)),
+    });
+    let trying = null;
+    const tryIt = h('button.btn.btn-soft.grownup-btn', {
+      onclick: () => { trying?.cancel(); trying = speak(['Once upon a time, Isaac made a book.']); },
+    }, h('span', {}, '🔊'), 'Try it');
+    box.append(
+      h('label.voice-field', {}, h('span', {}, '“Read to me” voice'), select),
+      h('label.voice-field', {}, h('span', {}, 'Speed'), h('span.rate-end', {}, '🐢'), rate, h('span.rate-end', {}, '🐇')),
+      tryIt,
+    );
+  });
+  return box;
+}
 
 export async function openShelf(root) {
   const urls = [];
@@ -55,6 +87,7 @@ export async function openShelf(root) {
         books.length ? h('button.btn.btn-soft.grownup-btn', { onclick: () => saveAll() }, h('span', {}, '💾'), 'Save all books to a file') : null,
         installBtn,
       ),
+      voiceSettings(),
     ),
     h('footer.credits', {}, 'Emoji stickers: ',
       h('a', { href: 'https://github.com/jdecked/twemoji', target: '_blank', rel: 'noopener' }, 'Twemoji'),

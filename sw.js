@@ -4,7 +4,7 @@
 // new files, and the app switches to them the next time the bookshelf is
 // showing (see install.js).
 
-const VERSION = '2026-11-21.12';
+const VERSION = '2026-11-21.13';
 const APP_CACHE = `app-${VERSION}`;
 const STICKER_CACHE = 'stickers-v1';
 
@@ -31,6 +31,7 @@ const APP_FILES = [
   'js/install.js',
   'js/items.js',
   'js/model.js',
+  'js/narrator.js',
   'js/print.js',
   'js/reader.js',
   'js/render.js',

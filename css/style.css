@@ -678,6 +678,8 @@ button:disabled { cursor: default; opacity: 0.35; }
   z-index: 2;
 }
 .reader-title { font-size: 22px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.read-aloud.reading { background: var(--danger); animation: reading-pulse 1.6s ease-in-out infinite; }
+@keyframes reading-pulse { 50% { box-shadow: 0 4px 0 rgba(0,0,0,0.18), 0 0 0 8px rgba(239, 83, 80, 0.25); } }
 .reader-label { font-size: 19px; font-weight: 600; color: var(--ink-soft); margin-right: 8px; white-space: nowrap; }
 .reader-stage {
   position: relative; overflow: hidden;
@@ -846,6 +848,12 @@ button:disabled { cursor: default; opacity: 0.35; }
 .grownups p { margin: 0 0 12px; font-size: 15px; }
 .grownup-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
 .grownup-btn { font-size: 16px; padding: 10px 18px; }
+.voice-settings { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 14px; }
+.voice-settings:empty { display: none; }
+.voice-field { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--ink); }
+.voice-select { font: inherit; font-size: 15px; padding: 6px 10px; border-radius: 10px; border: 2px solid #eee3d6; background: #fff; max-width: 280px; }
+.voice-rate { width: 140px; accent-color: var(--orange-deep); }
+.rate-end { font-size: 18px; }
 
 .credits { text-align: center; font-size: 13px; color: var(--ink-soft); margin-top: 28px; }
 .credits a { color: inherit; }

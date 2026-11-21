@@ -11,6 +11,9 @@ import { SHAPES, isCover, thicknessPx } from './model.js';
 import { renderPageCanvas } from './render.js';
 import { pageTurnSound } from './sound.js';
 import { h } from './ui.js';
+import { canNarrate, speak, pageWords, stopSpeaking } from './narrator.js';
+
+const wait = ms => new Promise(r => setTimeout(r, ms));
 
 const TILT = 36;         // degrees the book leans back, as if lying on a table
 const TURN_MS = 800;
@@ -98,6 +101,7 @@ class Reader {
         h('div.reader-title', {}, title),
         h('div.spacer'),
         this.label,
+        this.readBtn = canNarrate() ? h('button.btn-add.add-read.read-aloud', { onclick: () => this.toggleReading() }) : null,
         h('button.btn-add.add-text', { onclick: () => this.edit(), title: 'Change this page' },
           h('span.ico', {}, '✏️'), h('span.lbl', {}, 'Change it')),
         h('button.btn-add.add-picture', { onclick: () => { location.hash = `#/book/${this.book.id}/print`; }, title: 'Print this book' },
@@ -106,6 +110,7 @@ class Reader {
       this.stage,
     );
     root.append(this.el);
+    this.paintReadButton();
   }
 
   // ---------- sizes ----------
@@ -212,6 +217,79 @@ class Reader {
     pageTurnSound();
     this.busy = true;
     setTimeout(() => { this.busy = false; }, TURN_MS * 0.55);
+    this.pageChanged();
+  }
+
+  // ---------- reading aloud ----------
+
+  paintReadButton() {
+    if (!this.readBtn) return;
+    this.readBtn.classList.toggle('reading', !!this.reading);
+    this.readBtn.title = this.reading ? 'Stop reading' : 'Read the book out loud';
+    this.readBtn.replaceChildren(
+      h('span.ico', {}, this.reading ? '⏹️' : '🔊'),
+      h('span.lbl', {}, this.reading ? 'Stop' : 'Read to me'));
+  }
+
+  toggleReading() {
+    if (this.reading) this.stopReading();
+    else {
+      this.reading = true;
+      this.paintReadButton();
+      // At the end, start again from the beginning.
+      if (this.p === this.N) { this.p = 0; this.update(); setTimeout(() => this.readSpread(), TURN_MS); }
+      else this.readSpread();
+    }
+  }
+
+  stopReading() {
+    this.reading = false;
+    this.readToken = (this.readToken || 0) + 1;
+    clearTimeout(this.readTimer);
+    this.speech?.cancel();
+    this.speech = null;
+    stopSpeaking();
+    this.paintReadButton();
+  }
+
+  // The pages showing right now.
+  visiblePages() {
+    const { p, N } = this;
+    if (p === 0) return [0];
+    if (p === N) return [this.pages.length - 1];
+    return [this.leaves[p - 1][1], this.leaves[p][0]].filter(i => i !== null);
+  }
+
+  // Reads the open pages, then turns to the next ones and keeps going.
+  async readSpread() {
+    if (!this.reading || this.destroyed) return;
+    const token = this.readToken = (this.readToken || 0) + 1;
+    this.speech?.cancel();
+    await wait(120);
+    if (token !== this.readToken) return;
+    const pageHeight = SHAPES[this.book.shape].h;
+    const words = this.visiblePages().flatMap(i => pageWords(this.pages[i], pageHeight));
+    if (words.length) {
+      this.speech = speak(words);
+      await this.speech.done;
+    } else {
+      await wait(2500); // a moment to look at the pictures
+    }
+    if (token !== this.readToken || !this.reading || this.destroyed) return;
+    if (this.p >= this.N) { this.stopReading(); return; }
+    await wait(800);
+    if (token !== this.readToken || !this.reading || this.destroyed) return;
+    this.turn(1);
+  }
+
+  // Pages were turned (by the reader, or by hand while reading): read the
+  // new ones once the page has landed.
+  pageChanged() {
+    if (!this.reading) return;
+    this.readToken = (this.readToken || 0) + 1;
+    this.speech?.cancel();
+    clearTimeout(this.readTimer);
+    this.readTimer = setTimeout(() => this.readSpread(), TURN_MS + 150);
   }
 
   animateLeaf(leaf) {
@@ -271,6 +349,9 @@ class Reader {
     if (prog > 0.3 || quick) {
       this.p += press.dir;
       pageTurnSound();
+      this.update();
+      this.pageChanged();
+      return;
     }
     this.update();
   }
@@ -278,7 +359,7 @@ class Reader {
   onKey(e) {
     if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); this.turn(1); }
     else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); this.turn(-1); }
-    else if (e.key === 'Home') { this.p = 0; this.update(); }
+    else if (e.key === 'Home') { this.p = 0; this.update(); this.pageChanged(); }
   }
 
   // ---------- pictures of the pages ----------
@@ -314,6 +395,7 @@ class Reader {
 
   destroy() {
     this.destroyed = true;
+    this.stopReading();
     document.removeEventListener('keydown', this.onKey);
     this.resizeObserver.disconnect();
     this.urls.forEach(u => URL.revokeObjectURL(u));
