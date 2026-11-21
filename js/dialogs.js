@@ -5,6 +5,7 @@ import { h, openDialog } from './ui.js';
 import { STICKER_GROUPS, STICKER_NAMES, getStickerSrc, isEmojiSticker } from './stickers.js';
 import { FONTS, fontCss, ensureFont, PAPER_PATTERNS, PAPER_COLORS, drawPaper } from './render.js';
 import { SHAPES } from './model.js';
+import { shutterSound } from './sound.js';
 
 // Text sizes in page pixels (pages are 200 pixels per inch).
 export const TEXT_SIZES = [
@@ -259,10 +260,12 @@ export function stickerDialog() {
 
 // ---------- pictures ----------
 
+export const pickPictureFile = () => pickFile('image/*');
+
 // Opens the file chooser. Resolves with a File, or null if cancelled.
-export function pickPictureFile() {
+export function pickFile(accept) {
   return new Promise(resolve => {
-    const input = h('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
+    const input = h('input', { type: 'file', accept, style: { display: 'none' } });
     input.addEventListener('change', () => { resolve(input.files[0] || null); input.remove(); });
     input.addEventListener('cancel', () => { resolve(null); input.remove(); });
     document.body.append(input);
@@ -332,6 +335,7 @@ export async function cameraDialog() {
         ctx.drawImage(video, 0, 0, w, hgt);
         snapshot = shot;
         flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
+        shutterSound();
         view.classList.add('taken');
         controls.replaceChildren(again, use);
       }

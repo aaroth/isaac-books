@@ -1,5 +1,11 @@
 /* Isaac's Books */
 
+/* Letter styles, kept with the app so they work offline (see fonts/FONTS.txt). */
+@font-face { font-family: 'Fredoka'; font-style: normal; font-weight: 300 700; font-display: swap; src: url(../fonts/fredoka.woff2) format('woff2'); }
+@font-face { font-family: 'Patrick Hand'; font-style: normal; font-weight: 400; font-display: swap; src: url(../fonts/patrick-hand.woff2) format('woff2'); }
+@font-face { font-family: 'Luckiest Guy'; font-style: normal; font-weight: 400; font-display: swap; src: url(../fonts/luckiest-guy.woff2) format('woff2'); }
+@font-face { font-family: 'Creepster'; font-style: normal; font-weight: 400; font-display: swap; src: url(../fonts/creepster.woff2) format('woff2'); }
+
 :root {
   --font: 'Fredoka', 'Nunito', ui-rounded, 'Arial Rounded MT Bold', system-ui, sans-serif;
   --ink: #3b2f2a;
@@ -813,8 +819,39 @@ button:disabled { cursor: default; opacity: 0.35; }
   #print-root { display: block !important; }
 }
 
+/* ---------- shelf extras ---------- */
+
+.shelf-header { position: relative; }
+.sound-toggle {
+  position: absolute; right: 4px; top: 14px;
+  width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7); font-size: 26px;
+  box-shadow: 0 3px 8px rgba(120, 70, 20, 0.15);
+}
+.book-menu-small { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.btn-small { font-size: 17px; padding: 10px 18px; }
+.grownups {
+  max-width: 1180px; margin: 30px auto 0; padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.55); border-radius: 18px;
+  color: var(--ink-soft);
+}
+.grownups h3 { margin: 0 0 4px; font-size: 18px; color: var(--ink); }
+.grownups p { margin: 0 0 12px; font-size: 15px; }
+.grownup-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+.grownup-btn { font-size: 16px; padding: 10px 18px; }
+
 .credits { text-align: center; font-size: 13px; color: var(--ink-soft); margin-top: 28px; }
 .credits a { color: inherit; }
+
+/* Short screens (small Chromebooks with the browser bar showing). */
+@media (max-height: 640px) {
+  .editor { grid-template-rows: 56px minmax(0, 1fr) 94px; }
+  .palette { gap: 6px; padding: 8px; }
+  .current-color { height: 24px; }
+  .swatch-grid { gap: 5px; }
+  .swatch-btn { width: 32px; height: 32px; }
+  .thumb-page { height: 54px; }
+}
 
 @media (max-width: 1150px) {
   .btn-add .lbl, .btn-undo .lbl { display: none; }

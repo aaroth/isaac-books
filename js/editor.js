@@ -17,6 +17,7 @@ import {
 } from './dialogs.js';
 import { h, confirmDialog } from './ui.js';
 import { readerPositionForPage } from './reader.js';
+import { popSound } from './sound.js';
 
 const PALETTE = [
   '#212121', '#9e9e9e', '#ffffff',
@@ -389,6 +390,7 @@ class Editor {
       ? [this.W / 2, Math.max(fields.h / 2 + this.H * 0.06, this.H * 0.2)]
       : this.nextSpot();
     this.layer.add({ id: uid(), type: 'text', x, y, rot: 0, color: this.color, ...fields });
+    popSound();
   }
 
   async editText(item) {
@@ -417,6 +419,7 @@ class Editor {
     if (!sticker) return;
     const [x, y] = this.nextSpot();
     this.layer.add({ id: uid(), type: 'sticker', sticker, x, y, rot: 0, size: Math.round(Math.min(this.W, this.H) * 0.42) });
+    popSound();
   }
 
   async addPicture() {
@@ -448,6 +451,7 @@ class Editor {
       id: uid(), type: 'photo', blob, x, y, rot: 0,
       w: Math.round(wi + 2 * b), h: Math.round(hi + 2 * b),
     });
+    popSound();
   }
 
   updateTitleHint() {

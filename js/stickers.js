@@ -237,6 +237,12 @@ function twemojiUrl(emoji) {
   return TWEMOJI_BASE + cps.filter(c => zwj || c !== 0xfe0f).map(c => c.toString(16)).join('-') + '.svg';
 }
 
+// Every emoji sticker's picture address, for saving them all for offline use.
+export function twemojiUrls() {
+  const all = new Set(STICKER_GROUPS.flatMap(g => g.items).filter(isEmojiSticker));
+  return [...all].map(twemojiUrl);
+}
+
 // A same-origin blob URL for the sticker's picture, or null if it can't be
 // loaded (then the emoji itself is shown).
 const srcCache = new Map();

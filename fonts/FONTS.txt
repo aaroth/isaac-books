@@ -1,0 +1,8 @@
+Letter styles used in Isaac's Books (Latin characters), from Google Fonts.
+All are licensed under the SIL Open Font License 1.1:
+https://openfontlicense.org
+
+fredoka.woff2       Fredoka, by Milena Brandão and Hafontia
+patrick-hand.woff2  Patrick Hand, by Patrick Wagesreiter
+luckiest-guy.woff2  Luckiest Guy, by Astigmatic
+creepster.woff2     Creepster, by Sideshow

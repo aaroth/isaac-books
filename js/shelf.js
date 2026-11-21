@@ -3,12 +3,31 @@
 import * as db from './db.js';
 import { makeBook, insidePageCount, PAGE_COUNT_CHOICES, COVER_COLORS, SHAPES } from './model.js';
 import { h, openDialog, confirmDialog, book3d, rainbowTitle } from './ui.js';
+import { pickFile, messageDialog } from './dialogs.js';
+import { saveBooksToFile, readBookFile, addBookFromFile, FILE_EXTENSION } from './bookfile.js';
+import { canInstall, install, onInstallChange } from './install.js';
+import { soundOn, setSoundOn, chimeSound, popSound } from './sound.js';
 
 export async function openShelf(root) {
   const urls = [];
   const objectUrl = blob => { const u = URL.createObjectURL(blob); urls.push(u); return u; };
 
   const books = (await db.getAllBooks()).sort((a, b) => b.updated - a.updated);
+
+  const soundBtn = h('button.sound-toggle', {
+    onclick: () => { setSoundOn(!soundOn()); paintSound(); if (soundOn()) popSound(); },
+  });
+  const paintSound = () => {
+    soundBtn.textContent = soundOn() ? '🔊' : '🔇';
+    soundBtn.title = soundOn() ? 'Sounds are on' : 'Sounds are off';
+    soundBtn.setAttribute('aria-label', soundBtn.title);
+  };
+  paintSound();
+
+  const installBtn = h('button.btn.btn-soft.grownup-btn', { onclick: () => install() }, h('span', {}, '⬇️'), 'Install as an app');
+  const paintInstall = () => { installBtn.style.display = canInstall() ? '' : 'none'; };
+  paintInstall();
+  const stopInstallWatch = onInstallChange(paintInstall);
 
   const newTile = h('button.shelf-slot.new-book', { onclick: () => newBookDialog(), 'aria-label': 'Make a new book' },
     h('div.new-book-card', {}, h('span.plus', {}, '+'), h('span.new-label', {}, 'New book')));
@@ -25,9 +44,18 @@ export async function openShelf(root) {
   });
 
   const view = h('div.shelf-screen', {},
-    h('header.shelf-header', {}, rainbowTitle("Isaac's Books")),
+    h('header.shelf-header', {}, rainbowTitle("Isaac's Books"), soundBtn),
     h('div.shelf', {}, newTile, ...bookTiles),
     books.length === 0 ? h('p.shelf-empty', {}, 'Tap the big + to make your first book!') : null,
+    h('section.grownups', {},
+      h('h3', {}, 'For grown-ups'),
+      h('p', {}, 'Books are kept in this browser on this computer. Save them to a file to back them up or to open them on another computer.'),
+      h('div.grownup-buttons', {},
+        h('button.btn.btn-soft.grownup-btn', { onclick: () => openBookFile() }, h('span', {}, '📂'), 'Open a book file'),
+        books.length ? h('button.btn.btn-soft.grownup-btn', { onclick: () => saveAll() }, h('span', {}, '💾'), 'Save all books to a file') : null,
+        installBtn,
+      ),
+    ),
     h('footer.credits', {}, 'Emoji stickers: ',
       h('a', { href: 'https://github.com/jdecked/twemoji', target: '_blank', rel: 'noopener' }, 'Twemoji'),
       ' (CC-BY 4.0)'),
@@ -41,12 +69,16 @@ export async function openShelf(root) {
         h('button.btn.btn-big.btn-go', { onclick: () => close('read') }, h('span', {}, '📖'), 'Read it'),
         h('button.btn.btn-big.btn-blue', { onclick: () => close('edit') }, h('span', {}, '✏️'), 'Make pages'),
         h('button.btn.btn-big.btn-soft', { onclick: () => close('print') }, h('span', {}, '🖨️'), 'Print it'),
-        h('button.btn.btn-soft.btn-small-danger', { onclick: () => close('delete') }, h('span', {}, '🗑️'), 'Throw away'),
+        h('div.book-menu-small', {},
+          h('button.btn.btn-soft.btn-small', { onclick: () => close('save') }, h('span', {}, '💾'), 'Save to a file'),
+          h('button.btn.btn-soft.btn-small-danger', { onclick: () => close('delete') }, h('span', {}, '🗑️'), 'Throw away'),
+        ),
       ),
     ));
     if (choice === 'read') location.hash = `#/book/${book.id}/read/0`;
     if (choice === 'edit') location.hash = `#/book/${book.id}/edit/0`;
     if (choice === 'print') location.hash = `#/book/${book.id}/print`;
+    if (choice === 'save') await saveBooksToFile([book]);
     if (choice === 'delete') {
       const ok = await confirmDialog({
         icon: '🗑️', text: 'Throw this book away? It will be gone forever.',
@@ -59,13 +91,54 @@ export async function openShelf(root) {
     }
   }
 
+  async function saveAll() {
+    await saveBooksToFile(books);
+  }
+
+  async function openBookFile() {
+    const file = await pickFile(FILE_EXTENSION + ',application/json,.json');
+    if (!file) return;
+    let fromFile;
+    try {
+      fromFile = await readBookFile(file);
+    } catch (err) {
+      console.warn(err);
+      await messageDialog('📂', err.message === 'made by a newer version'
+        ? 'That book file was made by a newer version. Reload the page and try again.'
+        : "That isn't a book file from Isaac's Books.");
+      return;
+    }
+    const onShelf = new Set((await db.getAllBooks()).map(b => b.id));
+    let added = 0;
+    for (const entry of fromFile) {
+      let asCopy = false;
+      if (onShelf.has(entry.book.id)) {
+        const name = entry.book.title ? `“${entry.book.title}”` : 'This book';
+        const choice = await openDialog(close => h('div.confirm', {},
+          h('div.confirm-icon', {}, '📚'),
+          h('p.confirm-text', {}, `${name} is already on the shelf.`),
+          h('div.confirm-buttons', {},
+            h('button.btn.btn-big.btn-soft', { onclick: () => close('skip') }, 'Skip it'),
+            h('button.btn.btn-big.btn-blue', { onclick: () => close('copy') }, 'Keep both'),
+            h('button.btn.btn-big.btn-go', { onclick: () => close('replace') }, 'Use the file’s copy'),
+          ),
+        ));
+        if (choice !== 'copy' && choice !== 'replace') continue;
+        asCopy = choice === 'copy';
+      }
+      await addBookFromFile(entry, { asCopy });
+      added++;
+    }
+    if (added) { chimeSound(); rerender(); }
+  }
+
   function rerender() {
     destroy();
     root.innerHTML = '';
     openShelf(root).then(v => { current.destroy = v.destroy; });
   }
 
-  function destroy() { urls.forEach(u => URL.revokeObjectURL(u)); urls.length = 0; }
+  function destroy() { urls.forEach(u => URL.revokeObjectURL(u)); urls.length = 0; stopInstallWatch(); }
   const current = { destroy };
   return current;
 }
@@ -123,5 +196,6 @@ async function newBookDialog() {
   if (!result) return;
   const { book, pages } = makeBook(result);
   await db.putBookAndPages(book, pages);
+  chimeSound();
   location.hash = `#/book/${book.id}/edit/0`;
 }
