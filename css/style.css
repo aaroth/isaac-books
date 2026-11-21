@@ -5,6 +5,7 @@
 @font-face { font-family: 'Patrick Hand'; font-style: normal; font-weight: 400; font-display: swap; src: url(../fonts/patrick-hand.woff2) format('woff2'); }
 @font-face { font-family: 'Luckiest Guy'; font-style: normal; font-weight: 400; font-display: swap; src: url(../fonts/luckiest-guy.woff2) format('woff2'); }
 @font-face { font-family: 'Creepster'; font-style: normal; font-weight: 400; font-display: swap; src: url(../fonts/creepster.woff2) format('woff2'); }
+@font-face { font-family: 'Playwrite US Trad'; font-style: normal; font-weight: 100 400; font-display: swap; src: url(../fonts/cursive.woff2) format('woff2'); }
 
 :root {
   --font: 'Fredoka', 'Nunito', ui-rounded, 'Arial Rounded MT Bold', system-ui, sans-serif;
@@ -591,12 +592,14 @@ button:disabled { cursor: default; opacity: 0.35; }
 .choice-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .choice {
   display: inline-flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px;
-  min-width: 84px; min-height: 64px; padding: 6px 10px;
+  min-width: 70px; min-height: 64px; padding: 6px 6px;
   border-radius: 16px; border: 3px solid #eee3d6; background: #fff;
   transition: transform 0.12s, border-color 0.12s;
 }
 .choice.selected { border-color: var(--orange); background: #fff4e0; transform: scale(1.05); }
-.choice-label { font-size: 14px; font-weight: 500; color: var(--ink-soft); }
+.choice-label { font-size: 13px; font-weight: 500; color: var(--ink-soft); }
+.text-dialog .choice-row { gap: 6px; }
+.text-dialog .font-sample { font-size: 26px !important; }
 .font-sample { line-height: 1.1; }
 .size-sample { font-weight: 600; line-height: 1; }
 

@@ -34,6 +34,7 @@ export const FONTS = [
   { id: 'Patrick Hand', label: 'Handwriting', weight: 400 },
   { id: 'Luckiest Guy', label: 'Cartoon', weight: 400 },
   { id: 'Creepster', label: 'Spooky', weight: 400 },
+  { id: 'Playwrite US Trad', label: 'Cursive', weight: 400 },
 ];
 
 export const LINE_HEIGHT = 1.2;

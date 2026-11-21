@@ -3,7 +3,7 @@
 // Change VERSION whenever any app file changes: browsers then fetch the
 // new files and the next time the app opens it uses them.
 
-const VERSION = '2026-11-21.8';
+const VERSION = '2026-11-21.9';
 const APP_CACHE = `app-${VERSION}`;
 const STICKER_CACHE = 'stickers-v1';
 
@@ -16,6 +16,7 @@ const APP_FILES = [
   'fonts/patrick-hand.woff2',
   'fonts/luckiest-guy.woff2',
   'fonts/creepster.woff2',
+  'fonts/cursive.woff2',
   'img/icon.svg',
   'img/icon-192.png',
   'img/icon-512.png',
