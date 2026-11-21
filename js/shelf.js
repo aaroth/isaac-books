@@ -28,6 +28,9 @@ export async function openShelf(root) {
     h('header.shelf-header', {}, rainbowTitle("Isaac's Books")),
     h('div.shelf', {}, newTile, ...bookTiles),
     books.length === 0 ? h('p.shelf-empty', {}, 'Tap the big + to make your first book!') : null,
+    h('footer.credits', {}, 'Emoji stickers: ',
+      h('a', { href: 'https://github.com/jdecked/twemoji', target: '_blank', rel: 'noopener' }, 'Twemoji'),
+      ' (CC-BY 4.0)'),
   );
   root.append(view);
 

@@ -1,14 +1,20 @@
-// The page editor: draw on one page at a time, with a strip of all pages.
+// The page editor: draw on one page at a time, add words, stickers and
+// pictures, with a strip of all pages along the bottom.
 
 import * as db from './db.js';
 import {
-  SHAPES, pageLabel, shortPageLabel, isCover, insidePageCount, makePage,
+  SHAPES, pageLabel, shortPageLabel, isCover, insidePageCount, makePage, uid,
   MAX_INSIDE_PAGES, MIN_INSIDE_PAGES,
 } from './model.js';
 import {
   TOOLS, SIZES, MARKER_ALPHA, makeStroke, addPoint, drawSegment, drawStrokeEnd,
   floodFill, History, commitLayer, grainCanvas,
 } from './draw.js';
+import { drawPaper, renderItems, layoutText, shrinkPicture, ensureFont } from './render.js';
+import { ItemsLayer } from './items.js';
+import {
+  textDialog, stickerDialog, pickPictureFile, cameraDialog, hasCamera, paperDialog, messageDialog,
+} from './dialogs.js';
 import { h, confirmDialog } from './ui.js';
 
 const PALETTE = [
@@ -22,6 +28,8 @@ const PALETTE = [
   '#a1887f', '#8d5524', '#6d4c41',
 ];
 
+const AUTHOR = 'Isaac';
+
 const toBlob = (canvas, type, quality) =>
   new Promise((resolve, reject) =>
     canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Could not save picture'))), type, quality));
@@ -33,7 +41,10 @@ export async function openEditor(root, bookId, startIndex) {
   const pages = new Map();
   book.pageIds.forEach((id, i) => {
     const bg = isCover(book, i) ? book.coverColor : '#ffffff';
-    pages.set(id, records[i] || { ...makePage(book.id, bg), id });
+    const page = records[i] || { ...makePage(book.id, bg), id };
+    page.bgPattern = page.bgPattern || 'none';
+    page.items = page.items || [];
+    pages.set(id, page);
   });
   const editor = new Editor(root, book, pages);
   const last = book.pageIds.length - 1;
@@ -54,6 +65,7 @@ class Editor {
     this.index = -1;
     this.page = null;
     this.bg = '#ffffff';
+    this.pattern = 'none';
     this.history = null;
     this.stroke = null;
     this.dirty = false;
@@ -61,6 +73,13 @@ class Editor {
     this.saveChain = Promise.resolve();
     this.thumbUrls = new Map();
     this.loadToken = 0;
+    this.addCount = 0;
+
+    this.layer = new ItemsLayer({
+      W: this.W, H: this.H,
+      onChange: items => this.onItemsChanged(items),
+      onEditText: item => this.editText(item),
+    });
 
     this.build(root);
     this.onKey = this.onKey.bind(this);
@@ -75,13 +94,14 @@ class Editor {
 
   build(root) {
     const W = this.W, H = this.H;
+    this.paperCanvas = h('canvas.page-bg', { width: W, height: H });
     this.drawCanvas = h('canvas.draw', { width: W, height: H });
     this.overlay = h('canvas.overlay', { width: W, height: H });
+    this.paperCtx = this.paperCanvas.getContext('2d');
     this.drawCtx = this.drawCanvas.getContext('2d', { willReadFrequently: true });
     this.overlayCtx = this.overlay.getContext('2d');
     this.overlay.style.setProperty('--grain-url', `url(${grainCanvas().toDataURL()})`);
     this.grainSize = grainCanvas().width;
-    this.pageBg = h('div.page-bg');
     this.cursorRing = h('div.cursor-ring');
     this.pageWrap = h('div.page-wrap.tool-brush', {
       onpointerdown: e => this.onDown(e),
@@ -90,8 +110,9 @@ class Editor {
       onpointercancel: e => this.onUp(e),
       onpointerleave: () => this.cursorRing.classList.remove('show'),
       oncontextmenu: e => e.preventDefault(),
-    }, this.pageBg, this.drawCanvas, this.overlay, this.cursorRing);
-    this.stage = h('main.stage', {}, this.pageWrap);
+    }, this.paperCanvas, this.drawCanvas, this.overlay, this.layer.el, this.cursorRing);
+    this.titleHint = h('button.title-hint', { onclick: () => this.addText() }, '✨ Tap here to write the title');
+    this.stage = h('main.stage', {}, this.pageWrap, this.titleHint);
 
     // Top bar
     this.prevBtn = h('button.btn-icon', { onclick: () => this.goTo(this.index - 1), 'aria-label': 'Previous page' }, '◀');
@@ -100,9 +121,17 @@ class Editor {
     this.saveStatus = h('div.save-status');
     this.undoBtn = h('button.btn-tool.btn-undo', { onclick: () => this.undo() }, h('span.ico', {}, '↩️'), h('span.lbl', {}, 'Undo'));
     this.redoBtn = h('button.btn-tool.btn-undo', { onclick: () => this.redo() }, h('span.ico', {}, '↪️'), h('span.lbl', {}, 'Redo'));
+    const addBtn = (cls, icon, label, onclick) =>
+      h('button.btn-add.' + cls, { onclick, title: label }, h('span.ico', {}, icon), h('span.lbl', {}, label));
     const topbar = h('header.topbar', {},
       h('button.btn-home', { onclick: () => this.goHome(), 'aria-label': 'Back to bookshelf' }, '🏠'),
       h('div.page-nav', {}, this.prevBtn, this.pageName, this.nextBtn),
+      h('div.add-buttons', {},
+        addBtn('add-text', '🔤', 'Words', () => this.addText()),
+        addBtn('add-sticker', '🦸', 'Stickers', () => this.addSticker()),
+        addBtn('add-picture', '🖼️', 'Picture', () => this.addPicture()),
+        hasCamera() ? addBtn('add-camera', '📷', 'Camera', () => this.addCameraShot()) : null,
+      ),
       h('div.spacer'),
       this.saveStatus,
       this.undoBtn, this.redoBtn,
@@ -119,13 +148,12 @@ class Editor {
     this.sizeButtons = SIZES.map((s, i) => h('button.size-btn', {
       onclick: () => this.setSize(i), 'aria-label': ['Thin', 'Medium', 'Thick'][i],
     }, h('span.size-dot', { style: { '--d': [8, 16, 28][i] + 'px' } })));
-    this.paperBtn = h('button.btn-tool', { onclick: () => this.setPaper(), title: 'Color the paper' },
-      h('span.paper-ico'), h('span.lbl', {}, 'Paper'));
     const tools = h('aside.tools', {},
       toolGrid,
       h('div.size-row', {}, this.sizeButtons),
       h('div.tool-grid', {},
-        this.paperBtn,
+        h('button.btn-tool', { onclick: () => this.choosePaper(), title: 'Choose the paper' },
+          h('span.ico', {}, '📄'), h('span.lbl', {}, 'Paper')),
         h('button.btn-tool', { onclick: () => this.startOver(), title: 'Start this page over' },
           h('span.ico', {}, '🧹'), h('span.lbl', {}, 'Start over')),
       ),
@@ -164,6 +192,7 @@ class Editor {
     this.scale = s;
     this.pageWrap.style.width = Math.floor(this.W * s) + 'px';
     this.pageWrap.style.height = Math.floor(this.H * s) + 'px';
+    this.layer.setScale(Math.floor(this.W * s) / this.W);
     this.overlay.style.setProperty('--grain-size', (this.grainSize * this.pageWrap.offsetWidth / this.W) + 'px');
     this.updateCursorSize();
   }
@@ -187,6 +216,9 @@ class Editor {
     if (custom) this.customBtn.style.setProperty('--c', c);
     this.currentColor.style.background = c;
     this.el.style.setProperty('--current', c);
+    // With words picked, a color changes the words.
+    const sel = this.layer.selected;
+    if (sel && sel.type === 'text') { if (sel.color !== c) this.layer.updateSelected({ color: c }); return; }
     // Picking a color while erasing means he wants to draw again.
     if (this.tool === 'eraser') this.setTool(this.lastDrawTool || 'brush');
   }
@@ -215,6 +247,8 @@ class Editor {
     if (this.stroke || !e.isPrimary || !this.history) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
+    // Tapping the page while something is picked just un-picks it.
+    if (this.layer.selectedId) { this.layer.select(null); return; }
     const [x, y] = this.toPage(e);
 
     if (this.tool === 'fill') {
@@ -271,21 +305,30 @@ class Editor {
 
   moveCursor(e) {
     const ring = this.cursorRing;
-    if (e.pointerType === 'touch' || !TOOLS[this.tool].widthScale) { ring.classList.remove('show'); return; }
+    const overItem = e.target.closest && e.target.closest('.item, .sel-handle');
+    if (e.pointerType === 'touch' || overItem || !TOOLS[this.tool].widthScale || this.layer.selectedId) {
+      ring.classList.remove('show');
+      return;
+    }
     const r = this.pageWrap.getBoundingClientRect();
     ring.style.transform = `translate(${e.clientX - r.left}px, ${e.clientY - r.top}px) translate(-50%, -50%)`;
     ring.classList.add('show');
   }
 
-  setBg(color) {
+  // ---------- paper ----------
+
+  setPaper(color, pattern) {
     this.bg = color;
-    this.pageBg.style.background = color;
+    this.pattern = pattern;
+    drawPaper(this.paperCtx, this.W, this.H, color, pattern);
   }
 
-  setPaper() {
-    if (!this.history || this.color === this.bg) return;
-    this.history.push({ type: 'bg', color: this.color });
-    this.setBg(this.color);
+  async choosePaper() {
+    if (!this.history) return;
+    const result = await paperDialog({ color: this.bg, pattern: this.pattern, shape: this.book.shape });
+    if (!result || (result.color === this.bg && result.pattern === this.pattern)) return;
+    this.history.push({ type: 'bg', color: result.color, pattern: result.pattern });
+    this.setPaper(result.color, result.pattern);
     this.markDirty();
   }
 
@@ -295,19 +338,131 @@ class Editor {
     if (!ok) return;
     this.drawCtx.clearRect(0, 0, this.W, this.H);
     this.history.push({ type: 'clear' });
+    this.layer.select(null);
+    this.layer.setItems([]);
     this.markDirty();
   }
 
+  // ---------- words, stickers, pictures ----------
+
+  get pageState() {
+    return { bg: this.bg, pattern: this.pattern, items: this.layer.items };
+  }
+
+  applyState(state) {
+    if (state.bg !== this.bg || state.pattern !== this.pattern) this.setPaper(state.bg, state.pattern);
+    if (state.items !== this.layer.items) this.layer.setItems(state.items);
+    this.updateTitleHint();
+  }
+
+  onItemsChanged(items) {
+    if (!this.history) return;
+    this.history.push({ type: 'items', after: items });
+    this.markDirty();
+    this.updateTitleHint();
+  }
+
+  coverKind() {
+    if (this.index === 0) return 'front';
+    if (this.index === this.book.pageIds.length - 1) return 'back';
+    return null;
+  }
+
+  // Where a new thing goes: near the middle, a bit further each time so
+  // several don't land exactly on top of each other.
+  nextSpot() {
+    const n = [0, 1, 2, -1, -2][this.addCount++ % 5];
+    const step = Math.min(this.W, this.H) * 0.05;
+    return [this.W / 2 + n * step, this.H / 2 + n * step];
+  }
+
+  async addText() {
+    if (!this.history) return;
+    const cover = this.coverKind();
+    const res = await textDialog({ color: this.color, cover, authorName: AUTHOR });
+    if (!res) return;
+    await ensureFont(res.font, res.text);
+    const lay = layoutText(res.text, res.font, res.fontSize, this.W * 0.85);
+    // A title goes near the top of the front cover.
+    const [x, y] = cover === 'front' && !this.layer.items.some(i => i.type === 'text')
+      ? [this.W / 2, Math.max(lay.h / 2 + this.H * 0.06, this.H * 0.2)]
+      : this.nextSpot();
+    this.layer.add({
+      id: uid(), type: 'text', x, y, rot: 0,
+      text: res.text, font: res.font, fontSize: res.fontSize, color: this.color,
+      lines: lay.lines, w: lay.w, h: lay.h,
+    });
+  }
+
+  async editText(item) {
+    const res = await textDialog({ item, color: item.color, cover: this.coverKind(), authorName: AUTHOR });
+    if (!res) return;
+    const current = this.layer.items.find(i => i.id === item.id);
+    if (!current) return;
+    // Without a new size picked, keep the size it was turned and stretched to.
+    const fontSize = res.fontSize || current.fontSize;
+    const maxWidth = res.fontSize ? this.W * 0.85 : Math.max(this.W * 0.85, current.w);
+    await ensureFont(res.font, res.text);
+    const lay = layoutText(res.text, res.font, fontSize, maxWidth);
+    this.layer.replace({ ...current, text: res.text, font: res.font, fontSize, lines: lay.lines, w: lay.w, h: lay.h });
+  }
+
+  async addSticker() {
+    if (!this.history) return;
+    const sticker = await stickerDialog();
+    if (!sticker) return;
+    const [x, y] = this.nextSpot();
+    this.layer.add({ id: uid(), type: 'sticker', sticker, x, y, rot: 0, size: Math.round(Math.min(this.W, this.H) * 0.42) });
+  }
+
+  async addPicture() {
+    if (!this.history) return;
+    const file = await pickPictureFile();
+    if (!file) return;
+    try {
+      await this.placePhoto(await shrinkPicture(file));
+    } catch (err) {
+      console.error(err);
+      messageDialog('🖼️', "That picture couldn't be opened. Try a different one.");
+    }
+  }
+
+  async addCameraShot() {
+    if (!this.history) return;
+    const shot = await cameraDialog();
+    if (shot) await this.placePhoto(await shrinkPicture(shot));
+  }
+
+  // Adds a photo with a white border, fitted to most of the page.
+  async placePhoto({ blob, width, height }) {
+    const fit = Math.min((this.W * 0.6) / width, (this.H * 0.6) / height);
+    const wi = width * fit, hi = height * fit;
+    // Border chosen so that photoBorder() of the final size matches it.
+    const b = 0.045 * Math.min(wi, hi) / (1 - 0.09);
+    const [x, y] = this.nextSpot();
+    this.layer.add({
+      id: uid(), type: 'photo', blob, x, y, rot: 0,
+      w: Math.round(wi + 2 * b), h: Math.round(hi + 2 * b),
+    });
+  }
+
+  updateTitleHint() {
+    const show = this.index === 0 && !this.layer.items.some(i => i.type === 'text');
+    this.titleHint.classList.toggle('show', show);
+  }
+
+  // ---------- undo ----------
+
   undo() {
     if (this.stroke || !this.history) return;
-    const bg = this.history.undo(this.drawCtx);
-    if (bg !== null) { this.setBg(bg); this.markDirty(); }
+    const state = this.history.undo(this.drawCtx);
+    if (state) { this.applyState(state); this.markDirty(); }
   }
 
   redo() {
     if (this.stroke || !this.history) return;
-    const bg = this.history.redo(this.drawCtx, this.bg);
-    if (bg !== null) { this.setBg(bg); this.markDirty(); }
+    const state = this.history.redo(this.drawCtx, this.pageState);
+    if (state) { this.applyState(state); this.markDirty(); }
   }
 
   updateUndoButtons() {
@@ -316,11 +471,15 @@ class Editor {
   }
 
   onKey(e) {
-    if (e.target instanceof HTMLInputElement) return;
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (document.querySelector('#dialog-root .backdrop')) return;
     const mod = e.metaKey || e.ctrlKey;
     if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); }
     else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); this.redo(); }
+    else if (!mod && (e.key === 'Delete' || e.key === 'Backspace') && this.layer.selectedId) {
+      e.preventDefault(); this.layer.removeSelected();
+    }
+    else if (e.key === 'Escape' && this.layer.selectedId) this.layer.select(null);
     else if (!mod && e.key === 'ArrowLeft') this.goTo(this.index - 1);
     else if (!mod && e.key === 'ArrowRight') this.goTo(this.index + 1);
   }
@@ -344,10 +503,14 @@ class Editor {
     this.page = page;
     this.drawCtx.clearRect(0, 0, this.W, this.H);
     if (bitmap) { this.drawCtx.drawImage(bitmap, 0, 0, this.W, this.H); bitmap.close?.(); }
-    this.setBg(page.bg);
-    this.history = new History(this.drawCanvas, page.bg);
+    this.setPaper(page.bg, page.bgPattern || 'none');
+    this.layer.select(null);
+    this.layer.setItems(page.items || []);
+    this.addCount = 0;
+    this.history = new History(this.drawCanvas, this.pageState);
     this.updateUndoButtons();
     this.updateChrome();
+    this.updateTitleHint();
     this.renderStrip();
     this.pageWrap.classList.remove('enter-left', 'enter-right');
     void this.pageWrap.offsetWidth; // restart the animation
@@ -385,7 +548,7 @@ class Editor {
       const cover = isCover(book, i);
       const current = i === this.index;
       const canDelete = current && !cover && insidePageCount(book) > MIN_INSIDE_PAGES;
-      const thumb = h('button.thumb' + (cover ? '.cover' : '') + (current ? '.current' : ''), {
+      return h('button.thumb' + (cover ? '.cover' : '') + (current ? '.current' : ''), {
         'data-i': i,
         onclick: () => { if (this.justDragged) { this.justDragged = false; return; } this.goTo(i); },
         onpointerdown: e => this.onThumbDown(e, i),
@@ -399,7 +562,6 @@ class Editor {
           onpointerdown: e => e.stopPropagation(),
         }, '✖') : null,
       );
-      return thumb;
     });
     if (insidePageCount(book) < MAX_INSIDE_PAGES) {
       const add = h('button.thumb.add-page', { onclick: () => this.addPage(), title: 'Add a page' },
@@ -526,16 +688,15 @@ class Editor {
     this.saveTimer = setTimeout(() => this.save(), 1000);
   }
 
-  // A small picture of the page: paper color plus drawing.
-  composite(maxDim) {
+  // A small picture of the paper and drawing (items are added after).
+  compositeBase(maxDim) {
     const s = maxDim / Math.max(this.W, this.H);
     const c = document.createElement('canvas');
     c.width = Math.round(this.W * s);
     c.height = Math.round(this.H * s);
     const ctx = c.getContext('2d');
-    ctx.fillStyle = this.bg;
-    ctx.fillRect(0, 0, c.width, c.height);
     ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(this.paperCanvas, 0, 0, c.width, c.height);
     ctx.drawImage(this.drawCanvas, 0, 0, c.width, c.height);
     return c;
   }
@@ -544,25 +705,31 @@ class Editor {
     clearTimeout(this.saveTimer);
     if (!this.dirty || !this.page) return this.saveChain;
     this.dirty = false;
-    const { page, book, bg } = this;
+    const { page, book, bg, pattern } = this;
+    const items = this.layer.items;
     const isFront = this.index === 0;
     // Take the pictures now, before anything else is drawn.
     const drawingP = toBlob(this.drawCanvas, 'image/png');
-    const thumbC = this.composite(240);
-    const coverC = isFront ? this.composite(480) : null;
+    const thumbC = this.compositeBase(240);
+    const coverC = isFront ? this.compositeBase(480) : null;
     this.saveStatus.textContent = 'Saving…';
 
     this.saveChain = this.saveChain.then(async () => {
       try {
+        await renderItems(thumbC.getContext('2d'), items, thumbC.width / this.W);
+        if (coverC) await renderItems(coverC.getContext('2d'), items, coverC.width / this.W);
         const [drawing, thumb, coverThumb] = await Promise.all([
           drawingP,
           toBlob(thumbC, 'image/jpeg', 0.85),
           coverC ? toBlob(coverC, 'image/jpeg', 0.88) : null,
         ]);
-        page.drawing = drawing;
-        page.bg = bg;
-        page.thumb = thumb;
-        if (isFront) { book.coverThumb = coverThumb; book.coverColor = bg; }
+        Object.assign(page, { drawing, bg, bgPattern: pattern, items, thumb });
+        if (isFront) {
+          book.coverThumb = coverThumb;
+          book.coverColor = bg;
+          const title = items.find(i => i.type === 'text');
+          book.title = title ? title.text.split('\n')[0] : '';
+        }
         book.updated = Date.now();
         // A page removed while saving is not written back.
         if (!book.pageIds.includes(page.id)) return;
@@ -604,5 +771,6 @@ class Editor {
     this.resizeObserver.disconnect();
     await this.flush();
     for (const { url } of this.thumbUrls.values()) URL.revokeObjectURL(url);
+    this.layer.destroy();
   }
 }

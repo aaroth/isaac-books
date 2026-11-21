@@ -278,25 +278,38 @@ export function floodFill(ctx, x, y, color) {
 
 const MAX_UNDO = 20;
 
-// Applies one op to a drawing context. state.bg holds the paper color.
+// Applies one op to a drawing context. state = { bg, pattern, items } holds
+// the rest of the page: paper color, paper pattern, and placed items.
 export function applyOp(ctx, op, scratch, state) {
   switch (op.type) {
     case 'stroke': replayStroke(ctx, op, scratch); break;
     case 'fill': floodFill(ctx, op.x, op.y, op.color); break;
     case 'clear': ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); break;
-    case 'bg': state.bg = op.color; break;
+  }
+  applyToState(op, state);
+}
+
+// The part of an op that changes paper and items, not the picture.
+function applyToState(op, state) {
+  switch (op.type) {
+    case 'clear': state.items = []; break;
+    case 'bg':
+      if (op.color !== undefined) state.bg = op.color;
+      if (op.pattern !== undefined) state.pattern = op.pattern;
+      break;
+    case 'items': state.items = op.after; break;
   }
 }
 
 // Keeps a snapshot of the page from when it was opened (or from MAX_UNDO
 // steps ago) plus the ops since then. Undo rebuilds from the snapshot.
 export class History {
-  constructor(drawCanvas, bg) {
+  constructor(drawCanvas, state) {
     const { width, height } = drawCanvas;
     this.base = document.createElement('canvas');
     this.base.width = width; this.base.height = height;
     this.base.getContext('2d').drawImage(drawCanvas, 0, 0);
-    this.baseBg = bg;
+    this.baseState = { ...state };
     this.scratch = document.createElement('canvas');
     this.scratch.width = width; this.scratch.height = height;
     this.ops = [];
@@ -312,29 +325,33 @@ export class History {
     this.undone.length = 0;
     if (this.ops.length > MAX_UNDO) {
       const oldest = this.ops.shift();
-      const state = { bg: this.baseBg };
-      applyOp(this.base.getContext('2d'), oldest, this.scratch, state);
-      this.baseBg = state.bg;
+      applyOp(this.base.getContext('2d'), oldest, this.scratch, this.baseState);
     }
   }
 
-  // Both return the paper color after the change, or null if nothing to do.
+  // Both return the page state after the change, or null if nothing to do.
   undo(drawCtx) {
     if (!this.ops.length) return null;
-    this.undone.push(this.ops.pop());
+    const op = this.ops.pop();
+    this.undone.push(op);
+    const state = { ...this.baseState };
+    if (op.type === 'items' || op.type === 'bg') {
+      // The picture didn't change, so don't redraw it.
+      for (const o of this.ops) applyToState(o, state);
+      return state;
+    }
     drawCtx.clearRect(0, 0, drawCtx.canvas.width, drawCtx.canvas.height);
     drawCtx.drawImage(this.base, 0, 0);
-    const state = { bg: this.baseBg };
-    for (const op of this.ops) applyOp(drawCtx, op, this.scratch, state);
-    return state.bg;
+    for (const o of this.ops) applyOp(drawCtx, o, this.scratch, state);
+    return state;
   }
 
-  redo(drawCtx, currentBg) {
+  redo(drawCtx, currentState) {
     if (!this.undone.length) return null;
     const op = this.undone.pop();
     this.ops.push(op);
-    const state = { bg: currentBg };
+    const state = { ...currentState };
     applyOp(drawCtx, op, this.scratch, state);
-    return state.bg;
+    return state;
   }
 }

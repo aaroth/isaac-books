@@ -2,8 +2,12 @@
 //
 // book = { id, title, shape: 'tall'|'wide', coverColor, created, updated,
 //          pageIds: [frontCover, ...insidePages, backCover], coverThumb: Blob|null }
-// page = { id, bookId, bg: '#rrggbb', drawing: Blob|null (PNG, transparent
-//          where nothing is drawn), items: [] (text/stickers/photos, later), thumb: Blob|null }
+// page = { id, bookId, bg: '#rrggbb', bgPattern: 'none'|'lines'|..., drawing: Blob|null
+//          (PNG, transparent where nothing is drawn), items: [...], thumb: Blob|null }
+// item = { id, type: 'text'|'sticker'|'photo', x, y (center, page pixels), rot (degrees), ...}
+//   text:    text, font, fontSize, color, lines (line breaks), w, h
+//   sticker: sticker (emoji or 'svg:name'), size
+//   photo:   blob (WebP), w, h (including the white border)
 //
 // Pages are half a sheet of US Letter paper, so the printed booklet is a
 // sheet folded in half: tall books are 5.5 x 8.5 in, wide books 8.5 x 5.5 in.
@@ -29,7 +33,7 @@ export function uid() {
 }
 
 export function makePage(bookId, bg = '#ffffff') {
-  return { id: uid(), bookId, bg, drawing: null, items: [], thumb: null };
+  return { id: uid(), bookId, bg, bgPattern: 'none', drawing: null, items: [], thumb: null };
 }
 
 export function makeBook({ shape, insidePages, coverColor }) {
