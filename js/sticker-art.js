@@ -708,6 +708,205 @@ export const WALKING_DOGS = {
   'leash': { name: 'Leash', draw: leashSticker },
 };
 
+// ---------- Christmas ----------
+
+const SANTA_RED = '#d32f2f', SANTA_DARK = '#8e1b1b', FUR = '#ffffff', FUR_LINE = '#cfd8dc';
+
+// Santa's head and hat, centered on (100, 62).
+function santaHead() {
+  return `
+    <circle cx="100" cy="62" r="22" fill="#ffd7b5" stroke="#d9a680" stroke-width="2"/>
+    ${[[78, 72], [84, 86], [94, 92], [106, 92], [116, 86], [122, 72]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="11" fill="${FUR}" stroke="${FUR_LINE}" stroke-width="1.5"/>`).join('')}
+    <path d="M76 66 C78 92 122 92 124 66 C116 80 84 80 76 66 Z" fill="${FUR}"/>
+    <path d="M100 70 C92 64 82 66 80 74 C88 74 94 74 100 72 C106 74 112 74 120 74 C118 66 108 64 100 70 Z" fill="${FUR}" stroke="${FUR_LINE}" stroke-width="1.5"/>
+    <circle cx="100" cy="66" r="5.5" fill="#ff8a80"/>
+    <ellipse cx="85" cy="67" rx="5" ry="3" fill="#ff8a80" opacity="0.6"/><ellipse cx="115" cy="67" rx="5" ry="3" fill="#ff8a80" opacity="0.6"/>
+    <circle cx="92" cy="57" r="2.6" fill="#2b2b2b"/><circle cx="108" cy="57" r="2.6" fill="#2b2b2b"/>
+    <path d="M86 51 Q92 47 97 51 M103 51 Q108 47 114 51" stroke="${FUR}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M78 42 C80 16 112 4 136 18 L148 36 C138 28 126 26 122 42 Z" fill="${SANTA_RED}" stroke="${SANTA_DARK}" stroke-width="2.5" stroke-linejoin="round"/>
+    <rect x="72" y="36" width="56" height="13" rx="6.5" fill="${FUR}" stroke="${FUR_LINE}" stroke-width="1.5"/>
+    <circle cx="149" cy="38" r="9" fill="${FUR}" stroke="${FUR_LINE}" stroke-width="1.5"/>`;
+}
+
+function present({ box, ribbon, shape = 'cube', x = 0, y = 0, s = 1, dots = null, stripes = null }) {
+  const w = shape === 'tall' ? 76 : 104, hgt = shape === 'tall' ? 112 : 92;
+  const bx = 100 - w / 2, by = 190 - hgt;
+  const line = shade(box, -0.35), rline = shade(ribbon, -0.35);
+  const id = `p${Math.round(Math.random() * 1e6)}`;
+  const pattern = dots ? `<g clip-path="url(#${id})">${[0, 1, 2, 3].flatMap(r => [0, 1, 2, 3, 4].map(c => `<circle cx="${bx + 10 + c * (w / 4.6)}" cy="${by + 30 + r * 20}" r="4" fill="${dots}"/>`)).join('')}</g>`
+    : stripes ? `<g clip-path="url(#${id})">${[0, 1, 2, 3, 4, 5, 6, 7].map(i => `<path d="M${bx - 40 + i * 24} ${by + 120} L${bx + i * 24} ${by}" stroke="${stripes}" stroke-width="9"/>`).join('')}</g>` : '';
+  const body = `
+    <defs><clipPath id="${id}"><rect x="${bx}" y="${by + 16}" width="${w}" height="${hgt - 16}"/></clipPath></defs>
+    <rect x="${bx}" y="${by + 16}" width="${w}" height="${hgt - 16}" rx="4" fill="${box}" stroke="${line}" stroke-width="3"/>
+    ${pattern}
+    <rect x="${bx - 6}" y="${by}" width="${w + 12}" height="22" rx="4" fill="${shade(box, 0.08)}" stroke="${line}" stroke-width="3"/>
+    <rect x="${92}" y="${by}" width="16" height="${hgt}" fill="${ribbon}" stroke="${rline}" stroke-width="2"/>
+    <path d="M100 ${by} C84 ${by - 30} 62 ${by - 18} 72 ${by - 4} C78 ${by + 2} 92 ${by} 100 ${by} Z" fill="${ribbon}" stroke="${rline}" stroke-width="2.5"/>
+    <path d="M100 ${by} C116 ${by - 30} 138 ${by - 18} 128 ${by - 4} C122 ${by + 2} 108 ${by} 100 ${by} Z" fill="${ribbon}" stroke="${rline}" stroke-width="2.5"/>
+    <path d="M96 ${by + 2} L86 ${by + 20} M104 ${by + 2} L114 ${by + 20}" stroke="${ribbon}" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="100" cy="${by}" r="7" fill="${ribbon}" stroke="${rline}" stroke-width="2"/>`;
+  return s === 1 && !x && !y ? body : `<g transform="translate(${x} ${y}) translate(100 190) scale(${s}) translate(-100 -190)">${body}</g>`;
+}
+
+function santa({ wave = false, sack = false } = {}) {
+  const st = `stroke="${SANTA_DARK}" stroke-width="3" stroke-linejoin="round"`;
+  const p = [];
+  if (sack) {
+    p.push(`<path d="M150 64 C186 70 196 120 182 150 C170 172 128 172 122 146 C116 116 126 70 150 64 Z" fill="#a1887f" stroke="#6d4c41" stroke-width="3"/>`);
+    p.push(present({ box: '#43a047', ribbon: '#fdd835', x: 52, y: -104, s: 0.32 }) + present({ box: '#1e88e5', ribbon: '#e53935', x: 78, y: -110, s: 0.28 }));
+    p.push(`<path d="M138 70 C146 62 158 62 166 70" stroke="#6d4c41" stroke-width="5" fill="none" stroke-linecap="round"/>`);
+  }
+  p.push(`<rect x="84" y="140" width="15" height="36" fill="${SANTA_RED}" ${st}/><rect x="101" y="140" width="15" height="36" fill="${SANTA_RED}" ${st}/>`);
+  p.push(`<path d="M76 170 h24 v20 h-30 c0 -10 2 -20 6 -20 Z M100 170 h24 c4 0 6 10 6 20 h-30 Z" fill="#212121"/>`);
+  p.push(`<ellipse cx="100" cy="124" rx="44" ry="40" fill="${SANTA_RED}" ${st}/>`);
+  p.push(`<rect x="94" y="88" width="12" height="74" fill="${FUR}"/>`);
+  p.push(`<rect x="58" y="150" width="84" height="15" rx="7.5" fill="${FUR}" stroke="${FUR_LINE}" stroke-width="1.5"/>`);
+  p.push(`<rect x="57" y="118" width="86" height="12" fill="#212121"/><rect x="91" y="115" width="18" height="18" rx="2" fill="#ffd23f" stroke="#a66b00" stroke-width="2"/><rect x="96" y="120" width="8" height="8" fill="#212121"/>`);
+  p.push(limb('M64 102 L50 136', SANTA_RED, 15));
+  p.push(wave ? limb('M136 100 L154 74 L158 56', SANTA_RED, 15) : limb('M136 102 L150 86 L148 70', SANTA_RED, 15));
+  p.push(`<circle cx="50" cy="140" r="9" fill="#212121"/>`);
+  p.push(wave ? `<circle cx="158" cy="52" r="9" fill="#212121"/>` : `<circle cx="148" cy="66" r="9" fill="#212121"/>`);
+  p.push(santaHead());
+  // A little smaller, so the boots and pompom have room.
+  return svgDoc(`<g transform="translate(100 104) scale(0.92) translate(-100 -104)">${p.join('')}</g>`);
+}
+
+// Sized so the hat's pompom and the beard both fit.
+const santaFace = () => svgDoc(`<g transform="translate(100 100) scale(1.85) translate(-112 -56)">${santaHead()}</g>`);
+
+function reindeerBody({ red = false, flying = false } = {}) {
+  const fur = '#8d6e63', dark = '#4e342e', st = outline(dark);
+  const legs = flying
+    ? `<path d="M80 140 L60 156 M92 142 L76 162 M128 142 L150 156 M140 138 L164 146" stroke="${dark}" stroke-width="10" stroke-linecap="round"/><path d="M80 140 L60 156 M92 142 L76 162 M128 142 L150 156 M140 138 L164 146" stroke="${fur}" stroke-width="6" stroke-linecap="round"/>`
+    : `<rect x="78" y="140" width="9" height="46" rx="4" fill="${shade(fur, -0.2)}" ${st}/><rect x="128" y="140" width="9" height="46" rx="4" fill="${shade(fur, -0.2)}" ${st}/><rect x="90" y="140" width="9" height="46" rx="4" fill="${fur}" ${st}/><rect x="140" y="140" width="9" height="46" rx="4" fill="${fur}" ${st}/>`;
+  return `
+    ${legs}
+    <path d="M66 122 C58 116 56 108 62 104" stroke="${dark}" stroke-width="7" stroke-linecap="round" fill="none"/>
+    <ellipse cx="108" cy="128" rx="46" ry="20" fill="${fur}" ${st}/>
+    <ellipse cx="110" cy="138" rx="30" ry="7" fill="#d7ccc8"/>
+    <path d="M144 120 C148 102 152 90 158 82 L170 92 C164 102 160 116 156 128 Z" fill="${fur}" ${st}/>
+    <path d="M156 70 C150 50 140 42 132 36 M148 54 L140 58 M144 46 L150 36 M164 70 C172 48 180 40 190 34 M172 52 L180 56 M178 44 L172 34" stroke="#6d4c41" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M150 74 L142 64 L156 70 Z M170 76 L180 68 L174 82 Z" fill="${fur}" ${st}/>
+    <ellipse cx="164" cy="82" rx="15" ry="13" fill="${fur}" ${st}/>
+    <ellipse cx="180" cy="88" rx="11" ry="8" fill="#a1887f" ${st}/>
+    <circle cx="190" cy="86" r="${red ? 7 : 4.5}" fill="${red ? '#e53935' : '#3e2723'}"/>
+    ${red ? '<circle cx="188" cy="84" r="2" fill="#ffcdd2"/>' : ''}
+    <circle cx="164" cy="78" r="2.6" fill="#222"/><circle cx="165" cy="77" r="0.9" fill="#fff"/>
+    <path d="M144 112 C150 120 160 120 164 112" stroke="#c62828" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <circle cx="154" cy="120" r="4.5" fill="#ffd23f" stroke="#a66b00" stroke-width="1.5"/>`;
+}
+
+const reindeer = opts => svgDoc(reindeerBody(opts));
+
+function sleigh() {
+  return svgDoc(`
+    <path d="M18 172 L166 172 C184 172 192 160 188 146" fill="none" stroke="#ffb300" stroke-width="6" stroke-linecap="round"/>
+    <path d="M50 152 L46 172 M130 152 L134 172" stroke="#ffb300" stroke-width="5"/>
+    ${present({ box: '#43a047', ribbon: '#fdd835', x: -54, y: -64, s: 0.42 })}
+    ${present({ box: '#8e24aa', ribbon: '#ff80ab', shape: 'tall', x: -28, y: -60, s: 0.4 })}
+    <ellipse cx="114" cy="104" rx="26" ry="24" fill="${SANTA_RED}" stroke="${SANTA_DARK}" stroke-width="3"/>
+    <g transform="translate(114 66) scale(0.82) translate(-100 -62)">${santaHead()}</g>
+    ${limb('M132 100 L152 92 L162 98', SANTA_RED, 11)}<circle cx="164" cy="99" r="7" fill="#212121"/>
+    <path d="M24 112 L148 112 C166 112 172 96 168 84 L184 80 C192 108 180 152 148 152 L54 152 C34 152 22 132 24 112 Z" fill="${SANTA_RED}" stroke="${SANTA_DARK}" stroke-width="3.5" stroke-linejoin="round"/>
+    <path d="M32 122 L146 122 C158 122 164 112 164 100" fill="none" stroke="#ffb300" stroke-width="4"/>
+    <circle cx="60" cy="136" r="7" fill="#ffb300"/><circle cx="96" cy="136" r="7" fill="#ffb300"/><circle cx="132" cy="136" r="7" fill="#ffb300"/>`);
+}
+
+function presentPile() {
+  return svgDoc(`
+    ${present({ box: '#e53935', ribbon: '#43a047', x: -42, y: 0, s: 0.62, dots: '#ffffff' })}
+    ${present({ box: '#1e88e5', ribbon: '#fdd835', shape: 'tall', x: 46, y: 0, s: 0.58 })}
+    ${present({ box: '#fdd835', ribbon: '#e53935', x: 0, y: -66, s: 0.5, stripes: '#ff8f00' })}`);
+}
+
+// ---------- more Christmas things ----------
+
+function christmasTree() {
+  const lights = [[86, 70, '#e53935'], [116, 82, '#fdd835'], [74, 110, '#1e88e5'], [104, 104, '#e53935'], [130, 120, '#8e24aa'],
+    [64, 150, '#fdd835'], [94, 140, '#43a047'], [120, 152, '#1e88e5'], [146, 156, '#e53935'], [82, 166, '#ff80ab']];
+  return svgDoc(`
+    <rect x="88" y="168" width="24" height="24" fill="#6d4c41" stroke="#3e2723" stroke-width="3"/>
+    <path d="M100 74 L150 172 L50 172 Z" fill="#2e7d32" stroke="#1b5e20" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M100 48 L140 132 L60 132 Z" fill="#388e3c" stroke="#1b5e20" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M100 24 L128 92 L72 92 Z" fill="#43a047" stroke="#1b5e20" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M78 84 Q100 96 122 80 M66 124 Q100 140 134 120 M58 162 Q100 178 144 158" stroke="#ffd23f" stroke-width="3" fill="none"/>
+    ${lights.map(([x, y, c]) => `<circle cx="${x}" cy="${y}" r="5.5" fill="${c}" stroke="#ffffff" stroke-width="1.5"/>`).join('')}
+    <polygon points="${starPoints(100, 22, 16, 7)}" fill="#ffd23f" stroke="#c79100" stroke-width="2"/>`);
+}
+
+function stocking() {
+  return svgDoc(`
+    <path d="M70 52 L126 52 L126 124 C126 140 150 144 160 156 C172 172 156 194 134 190 C112 186 92 172 78 160 C68 150 70 136 70 124 Z" fill="${SANTA_RED}" stroke="${SANTA_DARK}" stroke-width="3.5" stroke-linejoin="round"/>
+    <path d="M126 160 C140 156 156 164 160 174" stroke="${FUR}" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <polygon points="${starPoints(98, 108, 14, 6)}" fill="#ffd23f"/>
+    <rect x="62" y="28" width="72" height="30" rx="10" fill="${FUR}" stroke="${FUR_LINE}" stroke-width="2"/>
+    <path d="M128 30 C140 18 150 22 146 34" stroke="#ffb300" stroke-width="4" fill="none"/>`);
+}
+
+function candyCane() {
+  const d = 'M118 176 L118 64 C118 26 66 26 66 60';
+  return svgDoc(`
+    <path d="${d}" fill="none" stroke="#b71c1c" stroke-width="30" stroke-linecap="round"/>
+    <path d="${d}" fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round"/>
+    <path d="${d}" fill="none" stroke="#e53935" stroke-width="24" stroke-dasharray="13 13"/>
+    <path d="M110 180 L110 70" stroke="#ffffff" stroke-width="4" opacity="0.5" stroke-linecap="round"/>`);
+}
+
+function snowman() {
+  return svgDoc(`
+    <path d="M66 112 L30 86 M40 94 L30 100 M134 112 L170 86 M160 94 L172 98" stroke="#6d4c41" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="100" cy="152" r="40" fill="#ffffff" stroke="#b0bec5" stroke-width="3"/>
+    <circle cx="100" cy="102" r="30" fill="#ffffff" stroke="#b0bec5" stroke-width="3"/>
+    <circle cx="100" cy="60" r="24" fill="#ffffff" stroke="#b0bec5" stroke-width="3"/>
+    <path d="M80 80 Q100 92 120 80 L122 90 Q100 100 78 90 Z" fill="#e53935"/>
+    <path d="M114 86 L124 118 L132 116 L120 84 Z" fill="#c62828"/>
+    <circle cx="100" cy="100" r="4" fill="#263238"/><circle cx="100" cy="116" r="4" fill="#263238"/><circle cx="100" cy="148" r="4.5" fill="#263238"/><circle cx="100" cy="166" r="4.5" fill="#263238"/>
+    <circle cx="92" cy="56" r="3" fill="#263238"/><circle cx="108" cy="56" r="3" fill="#263238"/>
+    <path d="M100 62 L122 66 L100 68 Z" fill="#ff9800"/>
+    <path d="M90 72 Q100 77 110 72" stroke="#263238" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-dasharray="1 4"/>
+    <rect x="80" y="36" width="40" height="8" rx="2" fill="#212121"/><rect x="86" y="8" width="28" height="30" rx="3" fill="#212121"/>
+    <rect x="86" y="30" width="28" height="6" fill="#e53935"/>`);
+}
+
+function gingerbread() {
+  return svgDoc(`
+    <path d="M100 20 C118 20 128 34 126 50 C124 60 118 64 116 66 L152 74 C168 78 166 98 150 98 L126 96 L130 140 L150 172 C158 186 140 196 130 184 L100 150 L70 184 C60 196 42 186 50 172 L70 140 L74 96 L50 98 C34 98 32 78 48 74 L84 66 C82 64 76 60 74 50 C72 34 82 20 100 20 Z" fill="#c68642" stroke="#8d5524" stroke-width="3.5" stroke-linejoin="round"/>
+    <path d="M44 86 q6 -6 12 0 q6 6 12 0 M132 86 q6 -6 12 0 q6 6 12 0 M56 176 q5 -6 10 0 M134 176 q5 -6 10 0" stroke="#ffffff" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <circle cx="92" cy="40" r="4" fill="#ffffff"/><circle cx="108" cy="40" r="4" fill="#ffffff"/>
+    <path d="M90 52 Q100 60 110 52" stroke="#ffffff" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <circle cx="100" cy="88" r="6" fill="#e53935"/><circle cx="100" cy="108" r="6" fill="#43a047"/><circle cx="100" cy="128" r="6" fill="#1e88e5"/>`);
+}
+
+function ornament() {
+  return svgDoc(`
+    <path d="M100 14 C88 14 88 34 100 34 C112 34 112 14 100 14" fill="none" stroke="#9e9e9e" stroke-width="3"/>
+    <rect x="86" y="32" width="28" height="18" rx="3" fill="#ffd23f" stroke="#a66b00" stroke-width="2.5"/>
+    <circle cx="100" cy="116" r="66" fill="#e53935" stroke="#8e1b1b" stroke-width="4"/>
+    <path d="M38 104 Q100 124 162 104 L162 124 Q100 144 38 124 Z" fill="#ffd23f"/>
+    ${[56, 78, 100, 122, 144].map(x => `<circle cx="${x}" cy="${x === 100 ? 126 : 120}" r="4" fill="#ffffff"/>`).join('')}
+    <ellipse cx="74" cy="80" rx="16" ry="10" fill="#ffffff" opacity="0.4" transform="rotate(-30 74 80)"/>`);
+}
+
+export const CHRISTMAS = {
+  'santa': { name: 'Santa', draw: () => santa({ wave: true }) },
+  'santa-sack': { name: 'Santa with sack', draw: () => santa({ sack: true }) },
+  'santa-face': { name: 'Santa face', draw: santaFace },
+  'santa-sleigh': { name: 'Santa’s sleigh', draw: sleigh },
+  'rudolph': { name: 'Rudolph', draw: () => reindeer({ red: true }) },
+  'reindeer-flying': { name: 'Flying reindeer', draw: () => reindeer({ flying: true }) },
+  'present-red': { name: 'Red present', draw: () => svgDoc(present({ box: '#e53935', ribbon: '#43a047', dots: '#ffffff' })) },
+  'present-blue': { name: 'Blue present', draw: () => svgDoc(present({ box: '#1e88e5', ribbon: '#fdd835' })) },
+  'present-green': { name: 'Green present', draw: () => svgDoc(present({ box: '#43a047', ribbon: '#e53935', stripes: '#a5d6a7' })) },
+  'present-purple': { name: 'Tall present', draw: () => svgDoc(present({ box: '#8e24aa', ribbon: '#ff80ab', shape: 'tall', dots: '#ffd23f' })) },
+  'present-pile': { name: 'Pile of presents', draw: presentPile },
+  'christmas-tree': { name: 'Christmas tree', draw: christmasTree },
+  'stocking': { name: 'Stocking', draw: stocking },
+  'candy-cane': { name: 'Candy cane', draw: candyCane },
+  'snowman': { name: 'Snowman', draw: snowman },
+  'gingerbread': { name: 'Gingerbread man', draw: gingerbread },
+  'ornament': { name: 'Ornament', draw: ornament },
+};
+
 // ---------- dragons ----------
 
 function dragon(o) {
