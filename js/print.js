@@ -44,6 +44,10 @@ export function imposeBooklet(seq) {
 
 // ---------- the print screen ----------
 
+const FLIP_KEY = 'isaacs-books-flip';
+const getFlip = () => { try { return localStorage.getItem(FLIP_KEY) === 'long' ? 'long' : 'short'; } catch { return 'short'; } };
+const setFlip = edge => { try { localStorage.setItem(FLIP_KEY, edge); } catch { /* ignore */ } };
+
 export async function openPrint(root, bookId) {
   const book = await db.getBook(bookId);
   if (!book) { location.hash = '#/'; return { destroy() {} }; }
@@ -117,8 +121,12 @@ class PrintScreen {
   }
 
   renderControls() {
+    const flip = getFlip();
+    const other = flip === 'short' ? 'long' : 'short';
     const steps = this.twoSided ? [
-      ['printer', 'Print it on both sides', 'In the print window, turn on “Print on both sides” (or “Two-sided”) and pick “Flip on short edge”.'],
+      ['printer', 'Print it on both sides',
+        `In the print window, turn on “Print on both sides” (or “Two-sided”) and pick “Flip on ${flip} edge”. ` +
+        `If half the pages come out upside down, print again with “Flip on ${other} edge”, and change the setting below so it’s remembered.`],
     ] : [
       ['printer', 'Print side 1, then side 2', 'Print side 1. Put the printed pages back in the printer and print side 2. Every printer feeds paper differently, so try it with one sheet first.'],
     ];
@@ -136,8 +144,14 @@ class PrintScreen {
     const radio = (value, label) => h('label.print-choice' + (this.twoSided === value ? '.selected' : ''), {},
       h('input', { type: 'radio', name: 'sides', checked: this.twoSided === value, onchange: () => { this.twoSided = value; this.renderControls(); } }),
       label);
+    // Printers disagree about which flip setting is which for sideways
+    // pages, so remember the one that worked.
+    const flipBtn = edge => h('button.flip-choice' + (flip === edge ? '.selected' : ''), {
+      onclick: () => { setFlip(edge); this.renderControls(); },
+    }, `Flip on ${edge} edge`);
     this.optionsEl.replaceChildren(
       radio(true, 'My printer prints on both sides'),
+      this.twoSided ? h('div.flip-row', {}, h('span', {}, 'The setting that works on our printer:'), flipBtn('short'), flipBtn('long')) : null,
       radio(false, 'My printer prints on one side'),
       h('label.print-choice.check', {},
         h('input', { type: 'checkbox', checked: this.numbers, onchange: e => { this.numbers = e.target.checked; } }),
