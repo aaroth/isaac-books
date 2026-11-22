@@ -4,7 +4,61 @@
 
 import { h } from './ui.js';
 import { uid } from './model.js';
-import { getStickerSrc } from './stickers.js';
+import { getStickerSrc, leashHand, leashLoop } from './stickers.js';
+
+// ---------- people walking dogs ----------
+
+// A point given in sticker units (0..200) on a sticker item, in page pixels.
+function stickerPoint(item, [u, v]) {
+  const k = item.size / 200, a = (item.rot || 0) * Math.PI / 180;
+  const dx = (u - 100) * k, dy = (v - 100) * k;
+  return [item.x + dx * Math.cos(a) - dy * Math.sin(a), item.y + dx * Math.sin(a) + dy * Math.cos(a)];
+}
+
+// The hand or leash loop of an item, in page pixels, or null.
+function handPoint(item) {
+  const h = item.type === 'sticker' && leashHand(item.sticker);
+  return h ? stickerPoint(item, h) : null;
+}
+function loopPoint(item) {
+  const l = item.type === 'sticker' && leashLoop(item.sticker);
+  return l ? stickerPoint(item, l) : null;
+}
+
+// True if this person already holds a leash, or this dog is already held.
+function alreadyJoined(item, items) {
+  const mine = handPoint(item) || loopPoint(item);
+  const isPerson = !!handPoint(item);
+  return items.some(other => {
+    if (other.id === item.id) return false;
+    const theirs = isPerson ? loopPoint(other) : handPoint(other);
+    return theirs && Math.hypot(theirs[0] - mine[0], theirs[1] - mine[1]) < 3;
+  });
+}
+
+// If item is a person or a dog on a leash, and one of the others is the
+// other half, moves item so the leash loop is in the hand. With maxDist,
+// only when they're already that close. With onlyFree, only joins someone
+// who isn't already walking (or being walked by) someone else. Returns the
+// moved item or null.
+export function joinLeash(item, others, maxDist = Infinity, onlyFree = false) {
+  if (item.type !== 'sticker') return null;
+  const hand = leashHand(item.sticker), loop = leashLoop(item.sticker);
+  if (!hand && !loop) return null;
+  let best = null;
+  // Most recently placed first, so a new dog goes with the newest person.
+  for (const other of [...others].reverse()) {
+    if (other.type !== 'sticker' || other.id === item.id) continue;
+    const theirs = hand ? leashLoop(other.sticker) : leashHand(other.sticker);
+    if (!theirs) continue;
+    if (onlyFree && alreadyJoined(other, others)) continue;
+    const target = stickerPoint(other, theirs);
+    const mine = stickerPoint(item, hand || loop);
+    const d = Math.hypot(target[0] - mine[0], target[1] - mine[1]);
+    if (d <= maxDist && (!best || d < best.d)) best = { d, dx: target[0] - mine[0], dy: target[1] - mine[1] };
+  }
+  return best ? { ...item, x: item.x + best.dx, y: item.y + best.dy } : null;
+}
 import { itemSize, renderText, ensureFont } from './render.js';
 
 const MIN_SIZE = 40;      // page pixels
@@ -202,21 +256,40 @@ export class ItemsLayer {
     let live = item;
     try { el.setPointerCapture(e.pointerId); } catch { /* ignore */ }
 
+    // Moving a person brings along any dog whose leash they're holding.
+    // (Moving the dog on its own takes the leash out of their hand.)
+    const hand = handPoint(item);
+    const dogs = hand ? this.items.filter(o => {
+      const l = loopPoint(o);
+      return l && o.id !== id && Math.hypot(l[0] - hand[0], l[1] - hand[1]) < 3;
+    }) : [];
+    let liveDogs = dogs;
+
     const move = ev => {
       const [qx, qy] = this.toPage(ev);
-      const dx = qx - px, dy = qy - py;
+      let dx = qx - px, dy = qy - py;
       if (!moved && Math.hypot(dx, dy) * this.scale < 5) return;
       moved = true;
       live = { ...item, x: clamp(item.x + dx, 0, this.W), y: clamp(item.y + dy, 0, this.H) };
+      dx = live.x - item.x; dy = live.y - item.y;
+      liveDogs = dogs.map(d => ({ ...d, x: d.x + dx, y: d.y + dy }));
       this.place(el, live);
+      liveDogs.forEach(d => { const de = this.elementFor(d.id); if (de) this.place(de, d); });
       this.place(this.sel, live);
     };
     const up = () => {
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
       el.removeEventListener('pointercancel', up);
-      // Moving something brings it to the front.
-      if (moved) this.commit(this.items.filter(i => i.id !== id).concat(live));
+      if (moved) {
+        const movedDogs = new Map(liveDogs.map(d => [d.id, d]));
+        const others = this.items.filter(i => i.id !== id).map(i => movedDogs.get(i.id) || i);
+        // A leash loop let go near a hand snaps into it (and the other way
+        // round), unless this person already brought their dog along.
+        if (!dogs.length) live = joinLeash(live, others, Math.max(60, live.size * 0.22)) || live;
+        // Moving something brings it to the front.
+        this.commit(others.concat(live));
+      }
       else if (wasSelected && item.type === 'text') this.onEditText(item);
     };
     el.addEventListener('pointermove', move);

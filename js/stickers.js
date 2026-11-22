@@ -2,7 +2,19 @@
 // the device's own emoji as a fallback). The super heroes, bad guys and
 // swarms are drawn here as SVG, so they always work, even offline.
 
-import { shade, svgDoc, limb, starPoints, DINOSAURS, DRAGONS, PETS, KNIGHTS } from './sticker-art.js';
+import { shade, svgDoc, limb, starPoints, DINOSAURS, DRAGONS, PETS, KNIGHTS, PEOPLE, WALKING_DOGS, LEASH_LOOP } from './sticker-art.js';
+
+// ---------- leashes: a person's hand and a dog's leash loop ----------
+
+// The hand (for people) or leash loop (for walking dogs) of a sticker, in
+// sticker units, or null.
+export function leashHand(stickerId) {
+  const p = stickerId.startsWith('svg:') && PEOPLE[stickerId.slice(4)];
+  return p ? p.hand : null;
+}
+export function leashLoop(stickerId) {
+  return stickerId.startsWith('svg:walk-') ? LEASH_LOOP : null;
+}
 
 const TWEMOJI_BASE = 'https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/';
 
@@ -186,7 +198,7 @@ const CUSTOM = {
   'swarm': () => swarm(['#7b1fa2', '#43a047']),
   'swarm-purple': () => swarm(['#7b1fa2']),
 };
-const NAMED = { ...DINOSAURS, ...DRAGONS, ...PETS, ...KNIGHTS };
+const NAMED = { ...DINOSAURS, ...DRAGONS, ...PETS, ...KNIGHTS, ...PEOPLE, ...WALKING_DOGS };
 for (const [id, s] of Object.entries(NAMED)) CUSTOM[id] = s.draw;
 
 // Names shown under hand-drawn stickers in the sticker book.
@@ -205,12 +217,15 @@ export const STICKER_GROUPS = [
       ...e('🦹 🦹‍♀️ 🦹‍♂️ 🦹🏾 🥷 😈 👿 👹 👺 💣 🧟 🧌 👾')] },
   { id: 'knights', label: 'Knights', icon: '🛡️',
     items: [...Object.keys(KNIGHTS).map(id => 'svg:' + id), ...e('🏰 🏯 🏇 🤴 👸 👑 ⚔️ 🗡️ 🛡️ 🏹 🪓 🐴')] },
+  { id: 'people', label: 'People', icon: '🧑',
+    items: [...Object.keys(PEOPLE).map(id => 'svg:' + id), ...Object.keys(WALKING_DOGS).map(id => 'svg:' + id),
+      ...e('🧑 👩 👨 👧 👦 👶 👵 👴 🚶 🏃 💃 🕺')] },
   { id: 'dinos', label: 'Dinosaurs', icon: '🦖',
     items: [...Object.keys(DINOSAURS).map(id => 'svg:' + id), ...e('🦖 🦕 🥚 🦴 🌋 🌴 🪨 🐊 🦎')] },
   { id: 'dragons', label: 'Dragons', icon: '🐉',
     items: [...Object.keys(DRAGONS).map(id => 'svg:' + id), ...e('🐉 🐲 🔥 🏰 👑 💎 🗡️ 🛡️ 🪄')] },
   { id: 'pets', label: 'Dogs & cats', icon: '🐕',
-    items: [...Object.keys(PETS).map(id => 'svg:' + id), ...e('🐶 🐕 🦮 🐕‍🦺 🐩 🐱 🐈 🐈‍⬛ 😺 😸 😻 😼 🙀 😹 🐾')] },
+    items: [...Object.keys(PETS).map(id => 'svg:' + id), ...Object.keys(WALKING_DOGS).map(id => 'svg:' + id), ...e('🐶 🐕 🦮 🐕‍🦺 🐩 🐱 🐈 🐈‍⬛ 😺 😸 😻 😼 🙀 😹 🐾')] },
   { id: 'animals', label: 'Animals', icon: '🐮',
     items: e('🐷 🐮 🐔 🐴 🐰 🐹 🐭 🐻 🐼 🐨 🐻‍❄️ 🦊 🐺 🦝 🦁 🐯 🐆 🦓 🦒 🐘 🦏 🦛 🐪 🦙 🦘 🦬 🐃 🐂 🐗 🐑 🐐 🦌 🦄 🐵 🦍 🦧 🐒 🦥 🦦 🦫 🦔 🐿️ 🐸 🐢 🐍 🦎 🐊 🦉 🦅 🦆 🦜 🦚 🦩 🦢 🐧 🐓 🦃 🕊️ 🐦') },
   { id: 'sea', label: 'Sea & bugs', icon: '🐙',

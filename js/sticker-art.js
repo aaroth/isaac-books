@@ -540,6 +540,174 @@ export const KNIGHTS = {
   'banner': { name: 'Banner', draw: () => bannerSticker('#1e63c6') },
 };
 
+// ---------- people ----------
+//
+// Everyday people standing on the ground (y = 192). Their right hand (on
+// our right) is held out at HAND, so a dog's leash loop can be put in it.
+
+export const HAND = { x: 146, y: 108 };   // for a full-size grown-up
+
+const HAIR_BACK = {
+  long: c => `<path d="M78 46 C76 20 124 20 122 46 L126 96 L112 92 L112 52 L88 52 L88 92 L74 96 Z" fill="${c}"/>`,
+  curly: c => [[80, 38], [88, 26], [100, 22], [112, 26], [120, 38], [124, 52], [76, 52], [78, 64], [122, 64]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="10" fill="${c}"/>`).join(''),
+  scarf: c => `<path d="M76 48 C74 18 126 18 124 48 L128 84 C114 92 86 92 72 84 Z" fill="${c}"/>`,
+  ponytail: c => `<path d="M118 34 C138 36 140 60 132 76 C128 62 124 50 116 44 Z" fill="${c}"/>`,
+};
+
+const HAIR_TOP = {
+  short: c => `<path d="M80 44 C80 22 120 22 120 44 C114 36 106 32 100 34 C92 32 86 36 80 44 Z" fill="${c}"/>`,
+  spiky: c => `<path d="M80 44 L80 30 L88 34 L90 22 L98 30 L102 18 L108 30 L114 24 L116 34 L120 32 L120 44 C112 36 88 36 80 44 Z" fill="${c}"/>`,
+  long: c => `<path d="M80 46 C78 22 122 22 120 46 C112 34 100 32 92 38 C88 40 84 42 80 46 Z" fill="${c}"/>`,
+  bun: c => `<circle cx="100" cy="22" r="9" fill="${c}"/><path d="M80 44 C80 24 120 24 120 44 C112 36 88 36 80 44 Z" fill="${c}"/>`,
+  curly: c => [[86, 30], [96, 26], [106, 26], [114, 32]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="8" fill="${c}"/>`).join(''),
+  bald: c => `<path d="M79 52 C78 42 80 36 84 34 L86 50 Z M121 52 C122 42 120 36 116 34 L114 50 Z" fill="${c}"/>`,
+  cap: c => `<path d="M80 40 C80 22 120 22 120 40 Z" fill="${c}"/><path d="M78 40 L60 42 C62 38 70 36 80 36 Z" fill="${shade(c, -0.25)}"/>`,
+  scarf: c => `<path d="M80 50 C78 24 122 24 120 50 C112 38 88 38 80 50 Z" fill="${c}"/>`,
+  pigtails: c => `<path d="M80 44 C80 24 120 24 120 44 C112 36 88 36 80 44 Z" fill="${c}"/><circle cx="74" cy="46" r="8" fill="${c}"/><circle cx="126" cy="46" r="8" fill="${c}"/>`,
+  ponytail: c => `<path d="M80 44 C80 24 120 24 120 44 C112 36 88 36 80 44 Z" fill="${c}"/>`,
+};
+
+function person(o) {
+  const st = outline(o.line || '#5d4037');
+  const s = o.scale || 1;
+  const skinLine = shade(o.skin, -0.3);
+  const p = [];
+  if (o.backpack) p.push(`<rect x="76" y="70" width="48" height="46" rx="10" fill="${o.backpack}" ${st}/>`);
+  if (HAIR_BACK[o.hair]) p.push(HAIR_BACK[o.hair](o.hairColor));
+  // Legs: trousers, shorts, or bare legs under a skirt or dress.
+  const legTop = o.bottom === 'dress' || o.bottom === 'skirt' ? 140 : 118;
+  if (o.bottom === 'pants') {
+    p.push(`<rect x="84" y="118" width="15" height="64" rx="6" fill="${o.bottomColor}" ${st}/><rect x="101" y="118" width="15" height="64" rx="6" fill="${o.bottomColor}" ${st}/>`);
+  } else {
+    p.push(`<rect x="86" y="${legTop}" width="11" height="${182 - legTop}" rx="5" fill="${o.skin}" stroke="${skinLine}" stroke-width="2"/><rect x="103" y="${legTop}" width="11" height="${182 - legTop}" rx="5" fill="${o.skin}" stroke="${skinLine}" stroke-width="2"/>`);
+    if (o.bottom === 'shorts') p.push(`<path d="M82 116 L118 116 L120 146 L101 146 L100 132 L99 146 L80 146 Z" fill="${o.bottomColor}" ${st}/>`);
+  }
+  p.push(`<ellipse cx="90" cy="186" rx="10" ry="6" fill="${o.shoes || '#3e2723'}"/><ellipse cx="110" cy="186" rx="10" ry="6" fill="${o.shoes || '#3e2723'}"/>`);
+  // Body
+  if (o.bottom === 'dress') {
+    p.push(`<path d="M84 70 L116 70 L132 148 L68 148 Z" fill="${o.top}" ${st}/>`);
+  } else {
+    if (o.bottom === 'skirt') p.push(`<path d="M80 112 L120 112 L130 146 L70 146 Z" fill="${o.bottomColor}" ${st}/>`);
+    if (o.bottom === 'overalls') {
+      p.push(`<rect x="84" y="118" width="15" height="58" rx="6" fill="${o.bottomColor}" ${st}/><rect x="101" y="118" width="15" height="58" rx="6" fill="${o.bottomColor}" ${st}/>`);
+    }
+    p.push(`<rect x="80" y="68" width="40" height="${o.bottom === 'skirt' ? 48 : 56}" rx="12" fill="${o.top}" ${st}/>`);
+    if (o.bottom === 'overalls') p.push(`<rect x="86" y="90" width="28" height="32" rx="4" fill="${o.bottomColor}"/><path d="M88 90 L86 70 M112 90 L114 70" stroke="${o.bottomColor}" stroke-width="5"/>`);
+  }
+  if (o.stripe) p.push(`<rect x="80" y="88" width="40" height="8" fill="${o.stripe}"/>`);
+  // Arms: left one down (or waving), right one out a little to hold a leash.
+  const sleeve = o.top;
+  p.push(o.wave ? limb('M83 76 L66 58 L64 40', sleeve, 11) : limb('M83 76 L72 96 L70 112', sleeve, 11));
+  p.push(limb('M117 76 L132 94 L142 104', sleeve, 11));
+  p.push(o.wave ? `<circle cx="64" cy="36" r="6.5" fill="${o.skin}" stroke="${skinLine}" stroke-width="2"/>`
+    : `<circle cx="70" cy="114" r="6.5" fill="${o.skin}" stroke="${skinLine}" stroke-width="2"/>`);
+  p.push(`<circle cx="${HAND.x}" cy="${HAND.y}" r="6.5" fill="${o.skin}" stroke="${skinLine}" stroke-width="2"/>`);
+  if (o.cane) p.push(`<path d="M70 114 L70 186 M70 114 C70 104 80 104 80 112" stroke="#8d6e63" stroke-width="4" fill="none" stroke-linecap="round"/>`);
+  // Head
+  p.push(`<rect x="95" y="60" width="10" height="10" fill="${o.skin}"/>`);
+  p.push(`<circle cx="100" cy="46" r="20" fill="${o.skin}" stroke="${skinLine}" stroke-width="2"/>`);
+  p.push(HAIR_TOP[o.hair](o.hairColor));
+  p.push(`<circle cx="93" cy="47" r="2.4" fill="#2b2b2b"/><circle cx="107" cy="47" r="2.4" fill="#2b2b2b"/>`);
+  p.push(`<ellipse cx="88" cy="54" rx="3.5" ry="2.2" fill="#ff8a80" opacity="0.5"/><ellipse cx="112" cy="54" rx="3.5" ry="2.2" fill="#ff8a80" opacity="0.5"/>`);
+  if (o.glasses) p.push(`<circle cx="93" cy="47" r="5.5" fill="none" stroke="#424242" stroke-width="1.8"/><circle cx="107" cy="47" r="5.5" fill="none" stroke="#424242" stroke-width="1.8"/><path d="M98.5 47 H101.5" stroke="#424242" stroke-width="1.8"/>`);
+  if (o.beard) p.push(`<path d="M82 50 C84 70 116 70 118 50 C112 62 88 62 82 50 Z" fill="${o.beard}"/>`);
+  if (o.mustache) p.push(`<path d="M92 56 C96 53 104 53 108 56 C104 58 96 58 92 56 Z" fill="${o.mustache}"/>`);
+  p.push(`<path d="M94 57 Q100 62 106 57" stroke="#6d3b1f" stroke-width="2" fill="none" stroke-linecap="round"/>`);
+  if (o.bow) p.push(`<path d="M100 28 L92 22 L92 34 Z M100 28 L108 22 L108 34 Z" fill="${o.bow}"/>`);
+  // Smaller people stand on the same ground.
+  const body = p.join('');
+  return svgDoc(s === 1 ? body : `<g transform="translate(100 192) scale(${s}) translate(-100 -192)">${body}</g>`);
+}
+
+const PEOPLE_LIST = [
+  ['person-woman', 'Woman', { skin: '#f1c27d', hair: 'long', hairColor: '#6d4c41', top: '#26a69a', bottom: 'dress', shoes: '#c62828' }],
+  ['person-man-beard', 'Man with beard', { skin: '#8d5524', hair: 'short', hairColor: '#212121', beard: '#212121', top: '#1e63c6', bottom: 'pants', bottomColor: '#37474f' }],
+  ['person-boy', 'Boy', { scale: 0.74, skin: '#ffdbac', hair: 'spiky', hairColor: '#f9a825', top: '#e53935', bottom: 'shorts', bottomColor: '#1565c0', shoes: '#455a64' }],
+  ['person-girl', 'Girl', { scale: 0.74, skin: '#e0ac69', hair: 'pigtails', hairColor: '#212121', top: '#8e24aa', bottom: 'dress', shoes: '#ff4081', bow: '#ff4081' }],
+  ['person-grandma', 'Grandma', { scale: 0.95, skin: '#f1c27d', hair: 'bun', hairColor: '#bdbdbd', glasses: true, top: '#f48fb1', bottom: 'skirt', bottomColor: '#5d4037' }],
+  ['person-grandpa', 'Grandpa', { skin: '#c68642', hair: 'bald', hairColor: '#e0e0e0', glasses: true, mustache: '#e0e0e0', top: '#558b2f', bottom: 'pants', bottomColor: '#6d4c41', cane: true }],
+  ['person-teen', 'Teen', { scale: 0.9, skin: '#8d5524', hair: 'cap', hairColor: '#e53935', top: '#ff9800', bottom: 'pants', bottomColor: '#3949ab', shoes: '#fafafa', wave: true }],
+  ['person-woman-curly', 'Woman with curls', { skin: '#6d4c41', hair: 'curly', hairColor: '#2b1b12', top: '#fdd835', bottom: 'pants', bottomColor: '#1e88e5' }],
+  ['person-man', 'Man', { skin: '#ffdbac', hair: 'short', hairColor: '#8d6e63', top: '#43a047', stripe: '#a5d6a7', bottom: 'pants', bottomColor: '#bcaaa4', wave: true }],
+  ['person-toddler', 'Toddler', { scale: 0.58, skin: '#f1c27d', hair: 'curly', hairColor: '#a1887f', top: '#fff176', bottom: 'overalls', bottomColor: '#4fc3f7', shoes: '#e53935' }],
+  ['person-kid-backpack', 'Kid with backpack', { scale: 0.78, skin: '#c68642', hair: 'ponytail', hairColor: '#3e2723', top: '#00acc1', bottom: 'pants', bottomColor: '#5e35b1', backpack: '#ff7043' }],
+  ['person-woman-scarf', 'Woman with headscarf', { skin: '#e0ac69', hair: 'scarf', hairColor: '#7e57c2', top: '#ec407a', bottom: 'dress', shoes: '#5d4037' }],
+];
+
+// Where a person's leash hand is, in sticker units (0..200), after
+// shrinking them toward the ground.
+const handAt = s => [100 + (HAND.x - 100) * s, 192 + (HAND.y - 192) * s];
+
+export const PEOPLE = Object.fromEntries(PEOPLE_LIST.map(([id, name, opts]) =>
+  [id, { name, draw: () => person(opts), hand: handAt(opts.scale || 1) }]));
+
+// Where the loop of a walking dog's leash is, in sticker units.
+export const LEASH_LOOP = [9, HAND.y];
+
+// ---------- dogs out for a walk (side view, facing right) ----------
+//
+// The leash runs from the collar to a loop at the left edge, at the height
+// of a grown-up's hand, so the dog can stand next to a person and the loop
+// goes in their hand.
+
+function walkingDog(o) {
+  const s = o.size || 1;
+  const st = outline(o.dark);
+  const far = shade(o.fur, -0.2);
+  const ground = 188;
+  const T = (x, y) => [100 + (x - 100) * s, ground + (y - ground) * s];  // where a body point ends up
+  const p = [];
+  p.push(`<path d="M68 134 C54 122 52 104 60 94" fill="none" stroke="${o.dark}" stroke-width="11" stroke-linecap="round"/><path d="M68 134 C54 122 52 104 60 94" fill="none" stroke="${o.tail || o.fur}" stroke-width="7" stroke-linecap="round"/>`);
+  const legH = o.short ? 22 : 36;
+  p.push(`<rect x="86" y="${ground - legH}" width="9" height="${legH}" rx="4" fill="${far}" ${st}/><rect x="136" y="${ground - legH}" width="9" height="${legH}" rx="4" fill="${far}" ${st}/>`);
+  p.push(`<ellipse cx="112" cy="${ground - legH - 8}" rx="${o.long ? 50 : 42}" ry="18" fill="${o.fur}" ${st}/>`);
+  if (o.belly) p.push(`<ellipse cx="114" cy="${ground - legH - 1}" rx="30" ry="7" fill="${o.belly}"/>`);
+  if (o.spots) p.push([[96, -12, 4], [116, -6, 5], [130, -16, 3.5], [104, -2, 3]].map(([x, dy, r]) => `<circle cx="${x}" cy="${ground - legH - 8 + dy}" r="${r}" fill="${o.spots}"/>`).join(''));
+  p.push(`<rect x="76" y="${ground - legH}" width="9" height="${legH}" rx="4" fill="${o.fur}" ${st}/><rect x="126" y="${ground - legH}" width="9" height="${legH}" rx="4" fill="${o.fur}" ${st}/>`);
+  if (o.paws) p.push([80.5, 130.5].map(x => `<ellipse cx="${x}" cy="${ground - 2}" rx="6" ry="3" fill="${o.paws}"/>`).join(''));
+  // Head and neck
+  const hy = ground - legH - 32;
+  p.push(`<path d="M138 ${hy + 26} C142 ${hy + 12} 148 ${hy + 6} 156 ${hy + 4} L162 ${hy + 22} C156 ${hy + 28} 148 ${hy + 34} 140 ${hy + 36} Z" fill="${o.fur}" ${st}/>`);
+  if (o.ears === 'pointy') p.push(`<path d="M150 ${hy - 4} L152 ${hy - 26} L164 ${hy - 6} Z" fill="${o.earColor || o.fur}" ${st}/>`);
+  p.push(`<circle cx="160" cy="${hy}" r="16" fill="${o.fur}" ${st}/>`);
+  p.push(`<ellipse cx="176" cy="${hy + 6}" rx="${o.flat ? 8 : 13}" ry="8.5" fill="${o.muzzle || o.fur}" ${st}/>`);
+  if (o.mask) p.push(`<path d="M146 ${hy + 4} C152 ${hy + 16} 170 ${hy + 16} 176 ${hy + 10} L176 ${hy + 2} C168 ${hy + 6} 156 ${hy + 4} 146 ${hy + 4} Z" fill="${o.mask}"/>`);
+  if (o.ears !== 'pointy') p.push(`<path d="M152 ${hy - 10} C140 ${hy - 6} 138 ${hy + 8} 144 ${hy + 18} C150 ${hy + 14} 154 ${hy + 2} 156 ${hy - 6} Z" fill="${o.earColor || o.fur}" ${st}/>`);
+  p.push(`<circle cx="${o.flat ? 182 : 188}" cy="${hy + 3}" r="4" fill="#222"/>`);
+  p.push(`<circle cx="164" cy="${hy - 4}" r="2.8" fill="#222"/><circle cx="165" cy="${hy - 5}" r="0.9" fill="#fff"/>`);
+  if (o.tongue) p.push(`<path d="M172 ${hy + 12} Q176 ${hy + 22} 180 ${hy + 12} Z" fill="#ff7096"/>`);
+  p.push(`<path d="M143 ${hy + 16} C146 ${hy + 26} 152 ${hy + 30} 158 ${hy + 26}" stroke="${o.collar || '#e53935'}" stroke-width="6" fill="none" stroke-linecap="round"/>`);
+  const body = p.join('');
+  const [cx, cy] = T(150, hy + 28);  // the collar ring
+  const leash = o.leash || '#d84315';
+  // The leash rises from the collar, over the dog's back, then droops to
+  // the loop; it goes under the dog so it never cuts across the body.
+  return svgDoc(`
+    <path d="M${cx} ${cy} C${cx - 24} ${cy - 46} 70 ${HAND.y - 22} 14 ${HAND.y + 2}" fill="none" stroke="${leash}" stroke-width="4.5" stroke-linecap="round"/>
+    <ellipse cx="9" cy="${HAND.y}" rx="6" ry="8" fill="none" stroke="${leash}" stroke-width="4"/>
+    <g transform="translate(100 ${ground}) scale(${s}) translate(-100 -${ground})">${body}</g>
+    <circle cx="${cx}" cy="${cy}" r="3.5" fill="#ffd23f" stroke="#a66b00" stroke-width="1.5"/>`);
+}
+
+function leashSticker() {
+  return svgDoc(`
+    <path d="M22 70 C60 150 140 150 178 96" fill="none" stroke="#d84315" stroke-width="7" stroke-linecap="round"/>
+    <ellipse cx="16" cy="60" rx="10" ry="14" fill="none" stroke="#d84315" stroke-width="6" transform="rotate(-20 16 60)"/>
+    <path d="M176 98 L186 86 C190 82 196 86 192 92 L184 102 Z" fill="#b0bec5" stroke="#607d8b" stroke-width="2.5"/>
+    <circle cx="182" cy="94" r="3" fill="#607d8b"/>`);
+}
+
+export const WALKING_DOGS = {
+  'walk-golden': { name: 'Golden on a leash', draw: () => walkingDog({ size: 1.1, fur: '#f0b85a', dark: '#a0682a', muzzle: '#f7d59a', earColor: '#d99a3e', tongue: true }) },
+  'walk-dalmatian': { name: 'Dalmatian on a leash', draw: () => walkingDog({ fur: '#ffffff', dark: '#666666', earColor: '#222222', spots: '#222222', collar: '#1e88e5', leash: '#1e88e5' }) },
+  'walk-husky': { name: 'Husky on a leash', draw: () => walkingDog({ fur: '#7f8c99', dark: '#3c4a56', ears: 'pointy', belly: '#ffffff', muzzle: '#ffffff', mask: '#ffffff', paws: '#ffffff', collar: '#ff9800', leash: '#ff9800' }) },
+  'walk-corgi': { name: 'Corgi on a leash', draw: () => walkingDog({ size: 0.85, short: true, long: true, fur: '#f29b4b', dark: '#a8581b', ears: 'pointy', belly: '#ffffff', muzzle: '#ffffff', paws: '#ffffff', tongue: true, collar: '#1e88e5', leash: '#43a047' }) },
+  'walk-puppy': { name: 'Puppy on a leash', draw: () => walkingDog({ size: 0.75, fur: '#bcaaa4', dark: '#6d4c41', earColor: '#6d4c41', muzzle: '#efebe9', tongue: true, collar: '#fdd835', leash: '#8e24aa' }) },
+  'walk-lab': { name: 'Black lab on a leash', draw: () => walkingDog({ size: 1.1, fur: '#333333', dark: '#111111', muzzle: '#444444', earColor: '#222222', collar: '#e53935', leash: '#e53935', tongue: true }) },
+  'walk-pug': { name: 'Pug on a leash', draw: () => walkingDog({ size: 0.75, short: true, flat: true, fur: '#e8c79a', dark: '#8d6e47', muzzle: '#4a3b2f', earColor: '#4a3b2f', collar: '#43a047', leash: '#ff4081' }) },
+  'leash': { name: 'Leash', draw: leashSticker },
+};
+
 // ---------- dragons ----------
 
 function dragon(o) {

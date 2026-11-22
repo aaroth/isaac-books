@@ -11,7 +11,7 @@ import {
   floodFill, History, commitLayer, grainCanvas,
 } from './draw.js';
 import { drawPaper, renderItems, layoutRichText, shrinkPicture, ensureFont } from './render.js';
-import { ItemsLayer } from './items.js';
+import { ItemsLayer, joinLeash } from './items.js';
 import {
   textDialog, stickerDialog, pickPictureFile, cameraDialog, hasCamera, paperDialog, messageDialog,
 } from './dialogs.js';
@@ -429,7 +429,12 @@ class Editor {
     const sticker = await stickerDialog();
     if (!sticker) return;
     const [x, y] = this.nextSpot();
-    this.layer.add({ id: uid(), type: 'sticker', sticker, x, y, rot: 0, size: Math.round(Math.min(this.W, this.H) * 0.42) });
+    let item = { id: uid(), type: 'sticker', sticker, x, y, rot: 0, size: Math.round(Math.min(this.W, this.H) * 0.42) };
+    // A dog on a leash goes straight into the hand of a person already on
+    // the page (or a new person takes a waiting dog's leash), if it fits.
+    const joined = joinLeash(item, this.layer.items, Infinity, true);
+    if (joined && joined.x > 0 && joined.x < this.W && joined.y > 0 && joined.y < this.H) item = joined;
+    this.layer.add(item);
     popSound();
   }
 
