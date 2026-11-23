@@ -2,7 +2,7 @@
 // the device's own emoji as a fallback). The super heroes, bad guys and
 // swarms are drawn here as SVG, so they always work, even offline.
 
-import { shade, svgDoc, limb, starPoints, DINOSAURS, DRAGONS, PETS, KNIGHTS, PEOPLE, WALKING_DOGS, LEASH_LOOP, CHRISTMAS } from './sticker-art.js';
+import { shade, svgDoc, limb, starPoints, DINOSAURS, DRAGONS, PETS, KNIGHTS, PEOPLE, WALKING_DOGS, LEASH_LOOP, CHRISTMAS, HOLIDAYS } from './sticker-art.js';
 
 // ---------- leashes: a person's hand and a dog's leash loop ----------
 
@@ -198,7 +198,7 @@ const CUSTOM = {
   'swarm': () => swarm(['#7b1fa2', '#43a047']),
   'swarm-purple': () => swarm(['#7b1fa2']),
 };
-const NAMED = { ...DINOSAURS, ...DRAGONS, ...PETS, ...KNIGHTS, ...PEOPLE, ...WALKING_DOGS, ...CHRISTMAS };
+const NAMED = { ...DINOSAURS, ...DRAGONS, ...PETS, ...KNIGHTS, ...PEOPLE, ...WALKING_DOGS, ...CHRISTMAS, ...HOLIDAYS };
 for (const [id, s] of Object.entries(NAMED)) CUSTOM[id] = s.draw;
 
 // Names shown under hand-drawn stickers in the sticker book.
@@ -223,6 +223,9 @@ export const STICKER_GROUPS = [
   { id: 'christmas', label: 'Christmas', icon: '🎅',
     items: [...Object.keys(CHRISTMAS).map(id => 'svg:' + id),
       ...e('🎅 🤶 🧝 🎄 🎁 🦌 ⛄ ☃️ 🛷 🔔 🧦 🍪 🥛 🕯️ ❄️ 🌟 🎀 🧣 🧤')] },
+  { id: 'holidays', label: 'Holidays', icon: '🕎',
+    items: [...Object.keys(HOLIDAYS).map(id => 'svg:' + id),
+      ...e('🕎 ✡️ 🕯️ 🍩 🪙 🦃 🥧 🌽 🍂 🍁 🥔 🍗 🎆 🎇 🥳 🎊 🧧 🏮 🪔 💝')] },
   { id: 'dinos', label: 'Dinosaurs', icon: '🦖',
     items: [...Object.keys(DINOSAURS).map(id => 'svg:' + id), ...e('🦖 🦕 🥚 🦴 🌋 🌴 🪨 🐊 🦎')] },
   { id: 'dragons', label: 'Dragons', icon: '🐉',

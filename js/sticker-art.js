@@ -907,6 +907,221 @@ export const CHRISTMAS = {
   'ornament': { name: 'Ornament', draw: ornament },
 };
 
+// ---------- Hanukkah ----------
+
+const GOLD = '#ffc107', GOLD_DARK = '#b07800', HANUKKAH_BLUE = '#1e63c6';
+
+const flame = (x, y, s = 1) =>
+  `<path d="M${x} ${y - 14 * s} C${x + 7 * s} ${y - 4 * s} ${x + 6 * s} ${y + 4 * s} ${x} ${y + 5 * s} C${x - 6 * s} ${y + 4 * s} ${x - 7 * s} ${y - 4 * s} ${x} ${y - 14 * s} Z" fill="#ff9800"/>` +
+  `<path d="M${x} ${y - 6 * s} C${x + 3 * s} ${y - 1 * s} ${x + 3 * s} ${y + 3 * s} ${x} ${y + 3.5 * s} C${x - 3 * s} ${y + 3 * s} ${x - 3 * s} ${y - 1 * s} ${x} ${y - 6 * s} Z" fill="#ffeb3b"/>`;
+
+// A hanukkiah: eight candles and the taller helper candle (shamash) in the
+// middle. lit = how many of the eight are burning, counting from the right.
+function menorah(lit = 8) {
+  const xs = [20, 40, 60, 80, 120, 140, 160, 180];
+  const arms = [20, 40, 60, 80].map(d =>
+    `<path d="M${100 - d} 86 C${100 - d} ${86 + d * 0.95} ${100 + d} ${86 + d * 0.95} ${100 + d} 86" fill="none" stroke="${GOLD_DARK}" stroke-width="9"/>` +
+    `<path d="M${100 - d} 86 C${100 - d} ${86 + d * 0.95} ${100 + d} ${86 + d * 0.95} ${100 + d} 86" fill="none" stroke="${GOLD}" stroke-width="5"/>`).join('');
+  const candle = (x, top, i, isLit) => `
+    <rect x="${x - 4.5}" y="${top}" width="9" height="22" rx="2" fill="${i % 2 ? '#ffffff' : '#64b5f6'}" stroke="#1565c0" stroke-width="1.5"/>
+    ${isLit ? flame(x, top - 6) : `<path d="M${x} ${top} V${top - 5}" stroke="#424242" stroke-width="1.5"/>`}`;
+  return svgDoc(`
+    <path d="M66 188 L134 188 L122 172 L78 172 Z" fill="${GOLD}" stroke="${GOLD_DARK}" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="95" y="64" width="10" height="110" fill="${GOLD}" stroke="${GOLD_DARK}" stroke-width="2.5"/>
+    ${arms}
+    ${xs.map(x => `<rect x="${x - 7}" y="80" width="14" height="8" rx="2" fill="${GOLD}" stroke="${GOLD_DARK}" stroke-width="2"/>`).join('')}
+    <rect x="93" y="60" width="14" height="8" rx="2" fill="${GOLD}" stroke="${GOLD_DARK}" stroke-width="2"/>
+    ${xs.map((x, i) => candle(x, 58, i, i >= 8 - lit)).join('')}
+    ${candle(100, 38, 1, true)}`);
+}
+
+function dreidel(body, letterColor, letter) {
+  const dark = shade(body, -0.35), side = shade(body, -0.18);
+  return svgDoc(`
+    <rect x="90" y="14" width="20" height="40" rx="6" fill="${body}" stroke="${dark}" stroke-width="3"/>
+    <path d="M128 56 L150 48 L150 124 L128 132 Z" fill="${side}" stroke="${dark}" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M58 56 L128 56 L150 48 L82 48 Z" fill="${shade(body, 0.15)}" stroke="${dark}" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="58" y="56" width="70" height="76" fill="${body}" stroke="${dark}" stroke-width="3"/>
+    <path d="M58 132 L128 132 L94 188 Z" fill="${body}" stroke="${dark}" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M128 132 L150 124 L94 188 Z" fill="${side}" stroke="${dark}" stroke-width="3" stroke-linejoin="round"/>
+    <text x="93" y="116" font-size="54" font-weight="bold" font-family="Arial Hebrew, 'Noto Sans Hebrew', 'Noto Serif Hebrew', David, sans-serif" fill="${letterColor}" text-anchor="middle">${letter}</text>
+    <path d="M64 62 L72 62 L72 124" stroke="#ffffff" stroke-width="3" opacity="0.35" fill="none"/>`);
+}
+
+function latkes() {
+  const latke = (cx, cy, rx = 48, ry = 15) => {
+    const pts = [];
+    for (let i = 0; i < 24; i++) {
+      const a = i / 24 * Math.PI * 2, bump = i % 2 ? 1 : 0.92;
+      pts.push(`${(cx + Math.cos(a) * rx * bump).toFixed(1)},${(cy + Math.sin(a) * ry * bump).toFixed(1)}`);
+    }
+    return `<polygon points="${pts.join(' ')}" fill="#d4892a" stroke="#8d5a1a" stroke-width="2.5" stroke-linejoin="round"/>
+      <ellipse cx="${cx}" cy="${cy - 2}" rx="${rx * 0.7}" ry="${ry * 0.5}" fill="#e8a64a"/>
+      ${[[-20, -3], [6, 2], [22, -4], [-6, -6]].map(([dx, dy]) => `<path d="M${cx + dx} ${cy + dy} l8 -2" stroke="#8d5a1a" stroke-width="2" stroke-linecap="round"/>`).join('')}`;
+  };
+  return svgDoc(`
+    <ellipse cx="100" cy="150" rx="92" ry="36" fill="#e3f2fd" stroke="#90caf9" stroke-width="4"/>
+    <ellipse cx="100" cy="146" rx="70" ry="24" fill="#ffffff"/>
+    ${latke(86, 148)}${latke(108, 134)}${latke(94, 118)}
+    <path d="M132 112 C130 98 150 96 156 104 C166 104 166 118 156 120 C148 124 134 122 132 112 Z" fill="#e6b15c" stroke="#a87a2c" stroke-width="2"/>
+    <path d="M76 104 C76 92 96 88 100 98 C108 96 110 108 102 110 C94 114 78 112 76 104 Z" fill="#ffffff" stroke="#b0bec5" stroke-width="2"/>
+    <path d="M70 60 C62 48 78 40 70 26 M100 54 C92 42 108 34 100 20 M130 60 C122 48 138 40 130 26" stroke="#b0bec5" stroke-width="3.5" fill="none" stroke-linecap="round"/>`);
+}
+
+function sufganiyah() {
+  return svgDoc(`
+    <ellipse cx="100" cy="168" rx="82" ry="16" fill="#e3f2fd" stroke="#90caf9" stroke-width="3"/>
+    <ellipse cx="100" cy="120" rx="68" ry="52" fill="#d68a3c" stroke="#8d5524" stroke-width="3"/>
+    <ellipse cx="100" cy="106" rx="56" ry="34" fill="#e9a457"/>
+    <path d="M52 106 C64 78 136 78 148 106" fill="none" stroke="#ffffff" stroke-width="10" stroke-dasharray="2 7" stroke-linecap="round" opacity="0.9"/>
+    ${[[70, 92], [96, 84], [122, 90], [84, 104], [110, 102], [134, 108], [62, 112]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3.2" fill="#ffffff"/>`).join('')}
+    <path d="M150 116 C164 112 172 124 166 136 C162 146 168 154 162 158 C156 162 152 150 152 142 C150 132 142 124 150 116 Z" fill="#d81b60" stroke="#880e4f" stroke-width="2"/>
+    <circle cx="160" cy="124" r="2.5" fill="#f8bbd0"/>`);
+}
+
+function gelt() {
+  const coin = (cx, cy, rx, ry, gold = true, star = false) => {
+    const face = gold ? '#ffca28' : '#cfd8dc', rim = gold ? '#b07800' : '#78909c';
+    return `<ellipse cx="${cx}" cy="${cy + 5}" rx="${rx}" ry="${ry}" fill="${rim}"/>
+      <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${face}" stroke="${rim}" stroke-width="2.5"/>
+      <ellipse cx="${cx}" cy="${cy}" rx="${rx * 0.78}" ry="${ry * 0.78}" fill="none" stroke="${rim}" stroke-width="1.5" opacity="0.6"/>
+      ${star ? `<g transform="translate(${cx} ${cy}) scale(${rx / 60} ${ry / 60})"><polygon points="0,-34 29,16 -29,16" fill="none" stroke="${rim}" stroke-width="6"/><polygon points="0,34 -29,-16 29,-16" fill="none" stroke="${rim}" stroke-width="6"/></g>` : ''}
+      <path d="M${cx - rx * 0.5} ${cy - ry * 0.45} q${rx * 0.2} ${-ry * 0.2} ${rx * 0.4} 0" stroke="#ffffff" stroke-width="3" fill="none" opacity="0.6" stroke-linecap="round"/>`;
+  };
+  return svgDoc(`
+    ${coin(64, 160, 40, 16, false)}${coin(138, 162, 40, 16)}${coin(100, 140, 42, 17, false)}
+    ${coin(72, 120, 40, 16)}${coin(128, 116, 40, 16, false)}
+    <g transform="rotate(-12 100 74)">${coin(100, 74, 54, 54, true, true)}</g>`);
+}
+
+function starOfDavid(color = HANUKKAH_BLUE) {
+  return svgDoc(`
+    <polygon points="100,18 172,142 28,142" fill="none" stroke="${shade(color, -0.35)}" stroke-width="18" stroke-linejoin="round"/>
+    <polygon points="100,182 28,58 172,58" fill="none" stroke="${shade(color, -0.35)}" stroke-width="18" stroke-linejoin="round"/>
+    <polygon points="100,18 172,142 28,142" fill="none" stroke="${color}" stroke-width="12" stroke-linejoin="round"/>
+    <polygon points="100,182 28,58 172,58" fill="none" stroke="${color}" stroke-width="12" stroke-linejoin="round"/>`);
+}
+
+// ---------- Thanksgiving ----------
+
+function mapleLeaf(cx, cy, s, color, rot = 0) {
+  const right = [[0, -50], [9, -30], [22, -38], [18, -14], [40, -22], [34, -6], [50, 2], [28, 12], [32, 26], [10, 18], [4, 24]];
+  const pts = [...right, ...right.slice(1).reverse().map(([x, y]) => [-x, y])];
+  return `<g transform="translate(${cx} ${cy}) rotate(${rot}) scale(${s})">
+    <path d="M0 22 L0 50" stroke="${shade(color, -0.4)}" stroke-width="4" stroke-linecap="round"/>
+    <polygon points="${pts.map(p => p.join(',')).join(' ')}" fill="${color}" stroke="${shade(color, -0.35)}" stroke-width="2.5" stroke-linejoin="round"/>
+    <path d="M0 22 L0 -36 M0 0 L28 -14 M0 0 L-28 -14 M0 10 L22 18 M0 10 L-22 18" stroke="${shade(color, -0.3)}" stroke-width="2" fill="none"/></g>`;
+}
+
+const apple = (x, y, r = 14) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#e53935" stroke="#8e1b1b" stroke-width="2"/><path d="M${x} ${y - r + 2} q2 -8 6 -9" stroke="#5d4037" stroke-width="2.5" fill="none"/><path d="M${x + 3} ${y - r - 3} q8 -6 12 0 q-6 6 -12 0 Z" fill="#43a047"/><ellipse cx="${x - r * 0.4}" cy="${y - r * 0.35}" rx="${r * 0.25}" ry="${r * 0.15}" fill="#ffffff" opacity="0.5"/>`;
+
+function pumpkinShape(cx, cy, s = 1) {
+  return `<g transform="translate(${cx} ${cy}) scale(${s})">
+    <path d="M-2 -40 C-4 -52 6 -60 12 -58 C8 -52 6 -46 6 -40 Z" fill="#6d4c41" stroke="#3e2723" stroke-width="2"/>
+    <path d="M6 -48 C18 -60 34 -56 34 -46 C26 -44 16 -44 6 -48 Z" fill="#43a047" stroke="#1b5e20" stroke-width="2"/>
+    <ellipse cx="-30" cy="0" rx="30" ry="40" fill="#f57c00" stroke="#bf5f00" stroke-width="3"/>
+    <ellipse cx="30" cy="0" rx="30" ry="40" fill="#f57c00" stroke="#bf5f00" stroke-width="3"/>
+    <ellipse cx="0" cy="0" rx="28" ry="42" fill="#fb8c00" stroke="#bf5f00" stroke-width="3"/>
+    <ellipse cx="-10" cy="-18" rx="6" ry="12" fill="#ffb74d" opacity="0.6"/></g>`;
+}
+
+function cornCob(x, y, s = 1, rot = 0) {
+  const kernels = [];
+  for (let r = 0; r < 7; r++) for (let c = 0; c < 3; c++) kernels.push(`<ellipse cx="${-9 + c * 9}" cy="${-40 + r * 11}" rx="4.2" ry="5" fill="#ffd54f" stroke="#f9a825" stroke-width="1"/>`);
+  return `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})">
+    <ellipse cx="0" cy="-6" rx="17" ry="48" fill="#ffca28" stroke="#f9a825" stroke-width="2"/>
+    ${kernels.join('')}
+    <path d="M-4 40 C-30 20 -32 -20 -22 -40 C-20 -10 -12 20 0 44 Z" fill="#9ccc65" stroke="#558b2f" stroke-width="2"/>
+    <path d="M4 40 C30 20 32 -20 22 -40 C20 -10 12 20 0 44 Z" fill="#7cb342" stroke="#558b2f" stroke-width="2"/>
+    <path d="M0 42 L0 56" stroke="#689f38" stroke-width="5" stroke-linecap="round"/></g>`;
+}
+
+function cornucopia() {
+  const weave = [40, 62, 84, 106, 126].map(x => {
+    const t = (x - 18) / 130;
+    const top = 46 + t * 36, bot = 46 + t * 112;
+    return `<path d="M${x} ${top + 2} C${x + 8} ${(top + bot) / 2} ${x + 8} ${(top + bot) / 2} ${x} ${bot - 2}" stroke="#8d5524" stroke-width="3" fill="none"/>`;
+  }).join('');
+  return svgDoc(`
+    <path d="M14 44 C60 46 110 56 144 80 L150 160 C110 158 56 108 14 44 Z" fill="#c68642" stroke="#8d5524" stroke-width="3" stroke-linejoin="round"/>
+    ${weave}
+    <path d="M30 56 C70 62 110 74 142 96 M40 72 C76 84 112 104 146 126" stroke="#a0662f" stroke-width="2.5" fill="none"/>
+    <ellipse cx="148" cy="120" rx="22" ry="42" fill="#8d5524" stroke="#6d4c41" stroke-width="3"/>
+    ${[[150, 92], [160, 98], [144, 100], [156, 106], [148, 110], [162, 112], [152, 118]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="7" fill="#7b1fa2" stroke="#4a148c" stroke-width="1.5"/>`).join('')}
+    ${cornCob(178, 96, 0.6, 28)}
+    <path d="M180 132 C196 132 198 154 186 160 C176 166 166 158 170 146 C172 138 176 132 180 132 Z" fill="#c0ca33" stroke="#827717" stroke-width="2"/>
+    ${pumpkinShape(134, 170, 0.36)}
+    ${apple(170, 174, 13)}
+    <circle cx="104" cy="178" r="12" fill="#fb8c00" stroke="#bf5f00" stroke-width="2"/>
+    ${mapleLeaf(76, 172, 0.36, '#e53935', -30)}${mapleLeaf(190, 184, 0.28, '#fdd835', 20)}`);
+}
+
+function turkey() {
+  const colors = ['#8d5524', '#e53935', '#fb8c00', '#fdd835', '#fb8c00', '#e53935', '#8d5524'];
+  const feathers = colors.map((c, i) => {
+    const a = (-150 + i * 20) * Math.PI / 180;
+    const x = 100 + Math.cos(a) * 70, y = 120 + Math.sin(a) * 70;
+    return `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="18" ry="40" fill="${c}" stroke="${shade(c, -0.35)}" stroke-width="2.5" transform="rotate(${(-150 + i * 20 + 90).toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})"/>`;
+  }).join('');
+  return svgDoc(`
+    ${feathers}
+    <path d="M86 176 L82 190 M82 190 L74 194 M82 190 L84 196 M114 176 L118 190 M118 190 L126 194 M118 190 L116 196" stroke="#ff9800" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="100" cy="134" rx="40" ry="44" fill="#8d5524" stroke="#5d3a1a" stroke-width="3"/>
+    <ellipse cx="100" cy="146" rx="26" ry="26" fill="#a1683a"/>
+    <path d="M62 128 C54 146 64 166 80 164 C76 150 74 138 74 126 Z M138 128 C146 146 136 166 120 164 C124 150 126 138 126 126 Z" fill="#6d4c41" stroke="#4e342e" stroke-width="2"/>
+    <circle cx="100" cy="82" r="24" fill="#a1683a" stroke="#5d3a1a" stroke-width="3"/>
+    <circle cx="91" cy="76" r="5" fill="#ffffff"/><circle cx="109" cy="76" r="5" fill="#ffffff"/><circle cx="92" cy="77" r="2.6" fill="#222"/><circle cx="108" cy="77" r="2.6" fill="#222"/>
+    <path d="M92 86 L108 86 L100 98 Z" fill="#ffb300" stroke="#e65100" stroke-width="1.5"/>
+    <path d="M102 96 C110 100 108 114 102 112 C98 110 100 102 102 96 Z" fill="#e53935"/>`);
+}
+
+function roastTurkey() {
+  const drum = (x, y, flip) => `<g transform="translate(${x} ${y}) scale(${flip ? -1 : 1} 1)">
+    <path d="M0 0 C-14 -10 -30 -4 -32 8 C-34 22 -18 28 -6 20 Z" fill="#b5651d" stroke="#7a3e0f" stroke-width="2.5"/>
+    <path d="M-30 6 L-44 -2" stroke="#f5f5f5" stroke-width="7" stroke-linecap="round"/>
+    <path d="M-44 -2 l-6 -6 M-44 -2 l-8 2 M-44 -2 l-4 7" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/></g>`;
+  return svgDoc(`
+    <ellipse cx="100" cy="160" rx="94" ry="30" fill="#eceff1" stroke="#b0bec5" stroke-width="3"/>
+    <ellipse cx="100" cy="156" rx="78" ry="22" fill="#ffffff"/>
+    ${[[34, 150], [166, 150], [52, 170], [148, 170]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="14" ry="7" fill="#7cb342"/>`).join('')}
+    <circle cx="44" cy="162" r="6" fill="#e53935"/><circle cx="156" cy="162" r="6" fill="#e53935"/>
+    <path d="M40 132 C40 86 80 70 100 70 C120 70 160 86 160 132 C160 152 140 160 100 160 C60 160 40 152 40 132 Z" fill="#c8732a" stroke="#7a3e0f" stroke-width="3"/>
+    <path d="M60 104 C70 88 92 82 104 84" stroke="#e8a25a" stroke-width="8" fill="none" stroke-linecap="round" opacity="0.7"/>
+    ${drum(58, 132, false)}${drum(142, 132, true)}
+    <path d="M80 64 C76 52 86 46 84 36 M100 60 C96 48 106 42 104 32 M120 64 C116 52 126 46 124 36" stroke="#b0bec5" stroke-width="3" fill="none" stroke-linecap="round"/>`);
+}
+
+function pumpkinPie() {
+  return svgDoc(`
+    <ellipse cx="100" cy="136" rx="88" ry="42" fill="#c98a4b" stroke="#8d5524" stroke-width="3"/>
+    <path d="M12 136 L16 152 C40 178 160 178 184 152 L188 136" fill="#b5763a" stroke="#8d5524" stroke-width="3"/>
+    ${Array.from({ length: 22 }, (_, i) => { const a = i / 22 * Math.PI * 2; return `<circle cx="${(100 + Math.cos(a) * 82).toFixed(1)}" cy="${(136 + Math.sin(a) * 38).toFixed(1)}" r="7" fill="#d89a5a" stroke="#8d5524" stroke-width="1.5"/>`; }).join('')}
+    <ellipse cx="100" cy="134" rx="72" ry="31" fill="#e07b1f"/>
+    <ellipse cx="86" cy="126" rx="34" ry="10" fill="#ec9440" opacity="0.6"/>
+    <path d="M78 118 C74 102 92 92 100 100 C104 88 124 94 120 108 C132 112 128 126 114 126 C104 132 86 130 78 118 Z" fill="#ffffff" stroke="#cfd8dc" stroke-width="2"/>
+    <path d="M100 100 C96 92 104 84 102 78" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+    <path d="M92 114 C98 108 108 110 110 116" stroke="#cfd8dc" stroke-width="2" fill="none"/>`);
+}
+
+export const HOLIDAYS = {
+  'menorah': { name: 'Menorah', draw: () => menorah(8) },
+  'menorah-first': { name: 'Menorah, first night', draw: () => menorah(1) },
+  'dreidel-blue': { name: 'Dreidel', draw: () => dreidel(HANUKKAH_BLUE, '#ffffff', 'ש') },
+  'dreidel-gold': { name: 'Gold dreidel', draw: () => dreidel(GOLD, HANUKKAH_BLUE, 'נ') },
+  'latkes': { name: 'Latkes', draw: latkes },
+  'sufganiyah': { name: 'Jelly doughnut', draw: sufganiyah },
+  'gelt': { name: 'Gelt', draw: gelt },
+  'star-of-david': { name: 'Star of David', draw: () => starOfDavid() },
+  'present-hanukkah': { name: 'Hanukkah present', draw: () => svgDoc(present({ box: HANUKKAH_BLUE, ribbon: '#e0e0e0', dots: '#ffffff' })) },
+  'cornucopia': { name: 'Horn of plenty', draw: cornucopia },
+  'turkey': { name: 'Turkey', draw: turkey },
+  'roast-turkey': { name: 'Turkey dinner', draw: roastTurkey },
+  'pumpkin-pie': { name: 'Pumpkin pie', draw: pumpkinPie },
+  'pumpkin': { name: 'Pumpkin', draw: () => svgDoc(pumpkinShape(100, 120, 1.25)) },
+  'corn': { name: 'Corn', draw: () => svgDoc(cornCob(100, 104, 1.45, 18)) },
+  'autumn-leaves': { name: 'Autumn leaves', draw: () => svgDoc(mapleLeaf(70, 80, 0.95, '#e53935', -20) + mapleLeaf(132, 96, 0.9, '#fb8c00', 25) + mapleLeaf(96, 144, 0.8, '#fdd835', 5)) },
+};
+
 // ---------- dragons ----------
 
 function dragon(o) {
